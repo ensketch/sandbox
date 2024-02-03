@@ -1,7 +1,7 @@
 : 1
 name: ensketch-sandbox
 version: 0.1.0-a.0.z
-# type: lib,binless
+type: exe
 language: c++
 project: sandbox
 summary: ensketch-sandbox C++ executable
@@ -19,3 +19,5 @@ depends: * build2 >= 0.16.0
 depends: * bpkg >= 0.16.0
 
 # depends: libensketch-xstd ^0.1.0
+depends: libreplxx ^0.0.4
+depends: libchaiscript ^6.1.0

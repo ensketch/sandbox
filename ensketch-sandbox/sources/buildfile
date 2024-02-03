@@ -1,7 +1,11 @@
 libs =
-#import libs += libhello%lib{hello}
+import libs += libreplxx%lib{replxx}
+import libs += libchaiscript%lib{chaiscript}
 
-exe{ensketch-sandbox}: {hxx ixx txx cxx}{**} $libs testscript
+exe{ensketch-sandbox}: {hxx ixx txx cxx}{**} $libs
+{
+  test = true
+}
 
 out_pfx = [dir_path] $out_root/sources/
 src_pfx = [dir_path] $src_root/sources/
