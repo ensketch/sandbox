@@ -1,0 +1,21 @@
+: 1
+name: yyy
+version: 0.1.0-a.0.z
+# type: lib,binless
+language: c++
+project: sandbox
+summary: yyy C++ ttt
+license: GPL-3.0-or-later ; GNU General Public License v3.0 or later.
+
+# topics: first topic, second topic
+# keywords: first second third
+
+description-file: README.md
+# changes-file: CHANGELOG.md
+url: https://github.com/ensketch/sandbox
+email: ensketch@mailbox.org
+
+depends: * build2 >= 0.16.0
+depends: * bpkg >= 0.16.0
+
+# depends: libensketch-xstd ^0.1.0

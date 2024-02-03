@@ -1,0 +1,3 @@
+[submodule ".githooks/good-commit-msg"]
+	path = .githooks/good-commit-msg
+	url = https://github.com/ensketch/git-good-commit-msg.git

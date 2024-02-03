@@ -1,0 +1,9 @@
+libs =
+#import libs += libhello%lib{hello}
+
+exe{ensketch-sandbox}: {hxx ixx txx cxx}{**} $libs testscript
+
+out_pfx = [dir_path] $out_root/sources/
+src_pfx = [dir_path] $src_root/sources/
+
+cxx.poptions =+ "-I$out_pfx" "-I$src_pfx"
