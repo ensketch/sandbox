@@ -18,11 +18,15 @@ class viewer_context {
  public:
   viewer_context(int width, int height);
 
+  void set_vsync(bool value = true) noexcept {
+    window.setVerticalSyncEnabled(value);
+  }
+
  protected:
   sf::Window window{};
 };
 
-class viewer : viewer_context {
+class viewer : public viewer_context {
  public:
   viewer(int width, int height);
 

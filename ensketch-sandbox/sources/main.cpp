@@ -1,6 +1,7 @@
 #include <chaiscript/chaiscript.hpp>
 //
 #include <console_io.hpp>
+#include <frame_timer.hpp>
 #include <viewer.hpp>
 
 using namespace std;
@@ -11,7 +12,8 @@ int main(int argc, char* argv[]) {
   ensketch::sandbox::console_io console{};
   int i = 0;
 
-  auto viewer = make_unique<ensketch::sandbox::viewer>(500, 500);
+  unique_ptr<ensketch::sandbox::viewer> viewer{};
+  ensketch::sandbox::frame_timer timer{10.0f};
 
   const auto eval_chaiscript = [&](const string& code) {
     try {
@@ -23,12 +25,20 @@ int main(int argc, char* argv[]) {
 
   chai.add(chaiscript::fun([&](int width, int height) {
              viewer = make_unique<ensketch::sandbox::viewer>(width, height);
+             viewer->set_vsync();
+             timer.set_syncing(false);
            }),
-           "reset");
+           "viewer_open");
+  chai.add(chaiscript::fun([&]() {
+             viewer = nullptr;
+             timer.set_syncing();
+           }),
+           "viewer_close");
 
   while (true) {
-    i = (i + 1) % 4;
-    console.capture(format("i = {}\n", i));
+    // console.capture(format("idle time = {}s\n", idle_time));
+    // console.capture(format("frame time = {}s\n", current_frame_time));
+    console.capture(format("FPS = {}\n", timer.fps()));
 
     if (const auto ready = console.async_input()) {
       const auto tmp = ready.value();
@@ -39,10 +49,12 @@ int main(int argc, char* argv[]) {
       eval_chaiscript(input);
     }
 
-    console.update();
-    // this_thread::sleep_for(100ms);
+    if (viewer) {
+      viewer->process_events();
+      viewer->render();
+    }
 
-    viewer->process_events();
-    viewer->render();
+    console.update();
+    timer.update();
   }
 }
