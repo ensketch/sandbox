@@ -1,8 +1,8 @@
 #include <chaiscript/chaiscript.hpp>
 //
-#include <console_io.hpp>
-#include <frame_timer.hpp>
-#include <viewer.hpp>
+#include <ensketch/sandbox/console_io.hpp>
+#include <ensketch/sandbox/frame_timer.hpp>
+#include <ensketch/sandbox/viewer.hpp>
 
 using namespace std;
 using czstring = const char*;

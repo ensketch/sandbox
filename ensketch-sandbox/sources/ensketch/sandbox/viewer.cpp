@@ -1,4 +1,4 @@
-#include <viewer.hpp>
+#include <ensketch/sandbox/viewer.hpp>
 
 namespace ensketch::sandbox {
 
