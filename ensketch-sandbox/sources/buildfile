@@ -2,6 +2,10 @@ libs =
 import libs += libreplxx%lib{replxx}
 import libs += libchaiscript%lib{chaiscript}
 
+import libs += glbinding%lib{glbinding}
+import libs += glm%lib{glm}
+import libs += libsfml-graphics%lib{sfml-graphics}
+
 exe{ensketch-sandbox}: {hxx ixx txx cxx}{**} $libs
 {
   test = true
@@ -11,3 +15,6 @@ out_pfx = [dir_path] $out_root/sources/
 src_pfx = [dir_path] $src_root/sources/
 
 cxx.poptions =+ "-I$out_pfx" "-I$src_pfx"
+
+if ($cxx.target.system != 'win32-msvc')
+  cxx.libs += -pthread
