@@ -15,6 +15,14 @@ struct console_io {
     repl.bind_key_internal(Replxx::KEY::control(Replxx::KEY::ENTER),
                            "commit_line");
     repl.bind_key_internal(Replxx::KEY::shift(Replxx::KEY::TAB), "new_line");
+
+    repl.bind_key_internal(Replxx::KEY::control('D'), "send_eof");
+    repl.bind_key_internal(Replxx::KEY::control('C'), "abort_line");
+  }
+
+  void close() {
+    repl.emulate_key_press(Replxx::KEY::control('C'));
+    repl.emulate_key_press(Replxx::KEY::control('D'));
   }
 
   auto input() -> czstring { return repl.input(prompt); }
@@ -26,6 +34,11 @@ struct console_io {
     const auto result = input_task.get();
     input_task = {};
     return result;
+  }
+
+  void abort_input() {
+    repl.emulate_key_press(Replxx::KEY::control('C'));
+    repl.emulate_key_press(Replxx::KEY::ENTER);
   }
 
   void log(const string& str) { repl.print(str.c_str()); }

@@ -14,21 +14,20 @@ namespace ensketch::sandbox {
 
 using namespace gl;
 
-class viewer_context {
+class viewer {
  public:
-  viewer_context(int width, int height);
+  static sf::ContextSettings opengl_context_settings;
 
-  void set_vsync(bool value = true) noexcept {
-    window.setVerticalSyncEnabled(value);
-  }
+  viewer() noexcept {}
 
- protected:
-  sf::Window window{};
-};
+  void open(int width, int height);
+  void close();
 
-class viewer : public viewer_context {
- public:
-  viewer(int width, int height);
+  bool is_open() const noexcept { return window.isOpen(); }
+  operator bool() const noexcept { return is_open(); }
+
+  void init();
+  void free();
 
   void resize();
   void resize(int width, int height);
@@ -40,8 +39,13 @@ class viewer : public viewer_context {
 
   bool running() const noexcept { return _running; }
 
+  void set_vsync(bool value = true) noexcept {
+    window.setVerticalSyncEnabled(value);
+  }
+
  private:
-  bool _running = true;
+  bool _running = false;
+  sf::Window window{};
 };
 
 }  // namespace ensketch::sandbox
