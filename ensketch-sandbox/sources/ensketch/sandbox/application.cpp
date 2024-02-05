@@ -1,7 +1,15 @@
-#include <application.hpp>
+#include <ensketch/sandbox/application.hpp>
+
+namespace ensketch::sandbox {
+
+auto app() noexcept -> application& {
+  static application _app{};
+  return _app;
+}
 
 application::application() {
   init_chaiscript();
+  info("Successfully constructed application\n");
 }
 
 void application::run() {
@@ -49,3 +57,5 @@ void application::close_viewer() {
   viewer.close();
   timer.set_syncing();
 }
+
+}  // namespace ensketch::sandbox

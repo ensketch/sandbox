@@ -1,6 +1,20 @@
 #include <ensketch/sandbox/viewer.hpp>
+//
+#include <ensketch/sandbox/application.hpp>
 
 namespace ensketch::sandbox {
+
+namespace {
+void /*APIENTRY*/ glDebugOutput(GLenum source,
+                                GLenum type,
+                                unsigned int id,
+                                GLenum severity,
+                                GLsizei length,
+                                const char* message,
+                                const void* userParam) {
+  ensketch::sandbox::app().info(message);
+}
+}  // namespace
 
 sf::ContextSettings viewer::opengl_context_settings{
     /*.depthBits = */ 24,
@@ -22,8 +36,6 @@ void viewer::open(int width, int height) {
   window.setKeyRepeatEnabled(false);
   window.setActive(true);
 
-  glbinding::initialize(sf::Context::getFunction);
-
   _running = true;
   init();
 }
@@ -35,6 +47,18 @@ void viewer::close() {
 }
 
 void viewer::init() {
+  glbinding::initialize(sf::Context::getFunction);
+
+  int flags;
+  glGetIntegerv(GL_CONTEXT_FLAGS, &flags);
+  if (flags & static_cast<int>(GL_CONTEXT_FLAG_DEBUG_BIT)) {
+    glEnable(GL_DEBUG_OUTPUT);
+    glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS);
+    glDebugMessageCallback(glDebugOutput, nullptr);
+    glDebugMessageControl(GL_DONT_CARE, GL_DONT_CARE, GL_DONT_CARE, 0, nullptr,
+                          GL_TRUE);
+  }
+
   glClearColor(0.2f, 0.2f, 0.2f, 1.0f);
 }
 

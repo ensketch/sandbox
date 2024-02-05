@@ -1,8 +1,10 @@
-#include <application.hpp>
+#include <ensketch/sandbox/application.hpp>
 //
 #include <chaiscript/chaiscript.hpp>
 
 using namespace chaiscript;
+
+namespace ensketch::sandbox {
 
 // Do not export 'object'.
 namespace {
@@ -20,6 +22,7 @@ struct application::impl {
 
 application::~application() noexcept {
   if (pimpl) delete pimpl;
+  info("Successfully destroyed application\n");
 }
 
 void application::eval_chaiscript(const filesystem::path& script) try {
@@ -62,3 +65,5 @@ void application::init_chaiscript() {
 
   for (auto& x : pimpl->objects) pimpl->chai.add(x.data, x.name);
 }
+
+}  // namespace ensketch::sandbox

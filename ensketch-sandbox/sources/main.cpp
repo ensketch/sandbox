@@ -1,6 +1,7 @@
-#include <application.hpp>
+#include <ensketch/sandbox/application.hpp>
+
+using namespace ensketch::sandbox;
 
 int main(int argc, char* argv[]) {
-  application app{};
-  app.run();
+  app().run();
 }
