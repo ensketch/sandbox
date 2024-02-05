@@ -18,7 +18,8 @@ email: ensketch@mailbox.org
 depends: * build2 >= 0.16.0
 depends: * bpkg >= 0.16.0
 
-# depends: libensketch-xstd ^0.1.0
+depends: libensketch-xstd
+
 depends: libreplxx ^0.0.4
 depends: libchaiscript ^6.1.0
 depends: libsfml-graphics ^2.5.1

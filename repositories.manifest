@@ -10,6 +10,6 @@ location: https://pkg.cppget.org/1/alpha
 role: prerequisite
 location: https://github.com/build2-packaging/chaiscript.git
 
-#:
-#role: prerequisite
-#location: https://github.com/ensketch/xstd.git
+:
+role: prerequisite
+location: https://github.com/ensketch/xstd.git#main

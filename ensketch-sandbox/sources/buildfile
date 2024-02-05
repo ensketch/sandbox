@@ -1,4 +1,6 @@
 libs =
+import libs += libensketch-xstd%lib{ensketch-xstd}
+
 import libs += libreplxx%lib{replxx}
 import libs += libchaiscript%lib{chaiscript}
 
