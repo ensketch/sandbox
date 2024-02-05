@@ -37,18 +37,13 @@ void application::eval_chaiscript(const string& code) try {
 void application::init_chaiscript() {
   pimpl = new impl{};
 
-  pimpl->objects.emplace_back("viewer_open", "Open the viewer.",
-                              var(fun([this](int width, int height) {
-                                viewer.open(width, height);
-                                viewer.set_vsync();
-                                timer.set_syncing(false);
-                              })));
+  pimpl->objects.emplace_back(
+      "open_viewer", "Open the viewer with an OpenGL context.",
+      var(fun([this](int width, int height) { open_viewer(width, height); })));
 
-  pimpl->objects.emplace_back("viewer_close", "Close the viewer.",
-                              var(fun([this](int width, int height) {
-                                viewer.close();
-                                timer.set_syncing();
-                              })));
+  pimpl->objects.emplace_back("close_viewer",
+                              "Close the viewer and OpenGL context.",
+                              var(fun([this]() { close_viewer(); })));
 
   pimpl->objects.emplace_back(
       "set_opengl_version", "Set the OpenGL version used for the viewer.",

@@ -6,7 +6,7 @@ application::application() {
 
 void application::run() {
   while (running) {
-    console.capture(format("FPS = {}\n", timer.fps()));
+    console.capture(format("FPS = {:6.2f}\n", timer.fps()));
 
     process_console_input();
 
@@ -37,4 +37,15 @@ void application::process_console_input() {
     console.log("\n");
     eval_chaiscript(input);
   }
+}
+
+void application::open_viewer(int width, int height) {
+  viewer.open(width, height);
+  viewer.set_vsync();
+  timer.set_syncing(false);
+}
+
+void application::close_viewer() {
+  viewer.close();
+  timer.set_syncing();
 }

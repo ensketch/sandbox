@@ -13,8 +13,7 @@ class application {
   ~application() noexcept;
 
   void run();
-
-  void process_console_input();
+  // void quit();
 
   void info(auto&&... args) {}
   void warn(auto&&... args) {}
@@ -22,7 +21,13 @@ class application {
 
   void eval_chaiscript(const filesystem::path& script);
   void eval_chaiscript(const string& code);
+
+  void open_viewer(int width, int height);
+  void close_viewer();
+
+ private:
   void init_chaiscript();
+  void process_console_input();
 
  private:
   struct impl;
