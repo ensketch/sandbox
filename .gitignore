@@ -45,3 +45,7 @@
 !root.build
 !*manifest
 !*testscript
+
+# Don't ignore ChaiScript script files.
+#
+!*.chai
