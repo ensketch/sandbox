@@ -13,6 +13,8 @@ application::application() {
 }
 
 void application::run() {
+  running = true;
+
   while (running) {
     console.capture(format("FPS = {:6.2f}\n", timer.fps()));
 
@@ -21,9 +23,6 @@ void application::run() {
     if (viewer) {
       viewer.process_events();
       viewer.render();
-      if (!viewer.running()) {
-        running = false;
-      }
     }
 
     console.update();
@@ -31,6 +30,10 @@ void application::run() {
   }
 
   console.abort_input();
+}
+
+void application::quit() {
+  running = false;
 }
 
 void application::process_console_input() {

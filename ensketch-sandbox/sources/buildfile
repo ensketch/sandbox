@@ -9,7 +9,10 @@ import libs += libsfml-graphics%lib{sfml-graphics}
 exe{ensketch-sandbox}: {hxx ixx txx cxx}{**} $libs
 {
   test = true
+  test.arguments = $src_base/config.chai
 }
+
+# exe{ensketch-sandbox}: file{config.chai}: test.stdin = true
 
 out_pfx = [dir_path] $out_root/sources/
 src_pfx = [dir_path] $src_root/sources/

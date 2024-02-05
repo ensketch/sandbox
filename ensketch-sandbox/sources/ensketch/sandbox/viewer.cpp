@@ -67,7 +67,15 @@ void viewer::free() {}
 void viewer::process_events() {
   sf::Event event;
   while (window.pollEvent(event)) {
-    if (event.type == sf::Event::Closed) _running = false;
+    if (event.type == sf::Event::Closed) {
+      app().quit();
+    } else if (event.type == sf::Event::KeyPressed) {
+      switch (event.key.code) {
+        case sf::Keyboard::Escape:
+          app().quit();
+          break;
+      }
+    }
   }
 }
 

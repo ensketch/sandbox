@@ -20,8 +20,14 @@ class application {
   application(application&&) = delete;
   application& operator=(application&&) = delete;
 
+  /// This function runs the main event and update loop of the application.
+  /// As of this it blocks further execution of subsequent statements.
+  ///
   void run();
-  // void quit();
+
+  ///
+  ///
+  void quit();
 
   void info(const string& str) { console.log(format("INFO:  {}\n", str)); }
   void warn(const string& str) { console.log(format("WARN:  {}\n", str)); }
