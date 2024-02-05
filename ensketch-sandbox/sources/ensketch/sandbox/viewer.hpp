@@ -1,14 +1,7 @@
 #pragma once
+#include <ensketch/opengl/utility.hpp>
+//
 #include <SFML/Graphics.hpp>
-//
-#include <glbinding/gl/gl.h>
-#include <glbinding/glbinding.h>
-//
-#include <glm/glm.hpp>
-//
-#include <glm/ext.hpp>
-//
-#include <glm/gtx/norm.hpp>
 
 namespace ensketch::sandbox {
 

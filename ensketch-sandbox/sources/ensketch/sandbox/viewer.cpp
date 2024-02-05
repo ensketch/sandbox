@@ -1,6 +1,10 @@
 #include <ensketch/sandbox/viewer.hpp>
 //
 #include <ensketch/sandbox/application.hpp>
+//
+#include <ensketch/opengl/shader_object.hpp>
+#include <ensketch/opengl/shader_program.hpp>
+#include <ensketch/opengl/vertex_array.hpp>
 
 namespace ensketch::sandbox {
 
@@ -80,7 +84,39 @@ void viewer::process_events() {
 }
 
 void viewer::render() {
+  const auto vs = opengl::vertex_shader{R"##(
+#version 460 core
+
+vec3 vertices[3] = {
+  vec3(-0.5, -0.5, 0.0),
+  vec3(0.5, -0.5, 0.0),
+  vec3(0.0, 0.5, 0.0)
+};
+
+void main() {
+  gl_Position = vec4(vertices[gl_VertexID], 1.0);
+}
+)##"};
+
+  const auto fs = opengl::fragment_shader{R"##(
+#version 460 core
+
+layout (location = 0) out vec4 frag_color;
+
+void main() {
+  frag_color = vec4(1.0);
+}
+)##"};
+  auto shader = opengl::shader_program{vs, fs};
+
+  opengl::vertex_array va{};
+  va.bind();
+
   glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+  glUseProgram(shader);
+  glDrawArrays(GL_TRIANGLES, 0, 3);
+
   window.display();
 }
 
