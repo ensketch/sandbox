@@ -1,9 +1,6 @@
 #pragma once
-#include <exception>
-#include <fstream>
-#include <string>
-#include <type_traits>
-
+//
+#include <ensketch/xstd/utility.hpp>
 //
 #include <glbinding/gl/gl.h>
 #include <glbinding/glbinding.h>
@@ -19,26 +16,7 @@ namespace ensketch::opengl {
 using namespace std;
 using namespace gl;
 using namespace glm;
-
-using czstring = const char*;
-
-// 'czstring' is used because the given file path is only read once.
-inline auto string_from_file(czstring file_path) -> string {
-  // We will read all characters as block.
-  // Hence, open the file in binary mode.
-  // Make sure to jump to its end for directly reading its size.
-  ifstream file{file_path, ios::binary | ios::ate};
-  if (!file)
-    throw runtime_error("Failed to open the file '"s + file_path + "'.");
-  // Read the file size.
-  auto size = file.tellg();
-  // Prepare the result string with a sufficiently large buffer.
-  string result(size, '\0');
-  // Go back to the start and read all characters at once.
-  file.seekg(0);
-  file.read(result.data(), size);
-  return result;
-};
+using namespace xstd;
 
 // Need uniform interface to handle variable.
 // Need to inherit from standards.
