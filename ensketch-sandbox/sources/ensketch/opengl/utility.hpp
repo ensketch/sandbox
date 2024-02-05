@@ -18,6 +18,11 @@ using namespace gl;
 using namespace glm;
 using namespace xstd;
 
+namespace generic {
+template <typename T>
+concept transferable = is_trivially_copyable_v<T>;
+}  // namespace generic
+
 // Need uniform interface to handle variable.
 // Need to inherit from standards.
 // So, the wrapper of a handle is useful.

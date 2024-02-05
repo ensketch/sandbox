@@ -1,7 +1,9 @@
 #pragma once
-#include <ensketch/opengl/utility.hpp>
+#include <ensketch/opengl/opengl.hpp>
 //
 #include <SFML/Graphics.hpp>
+//
+#include <ensketch/sandbox/polyhedral_surface.hpp>
 
 namespace ensketch::sandbox {
 
@@ -39,6 +41,25 @@ class viewer {
  private:
   bool _running = false;
   sf::Window window{};
+
+  //
+  bool view_should_update = false;
+
+  // World Origin
+  vec3 origin;
+  // Basis Vectors of Right-Handed Coordinate System
+  vec3 up{0, 1, 0};
+  vec3 right{1, 0, 0};
+  vec3 front{0, 0, 1};
+  // Spherical/Horizontal Coordinates of Camera
+  float radius = 10;
+  float altitude = 0;
+  float azimuth = 0;
+
+  opengl::camera camera{};
+
+  // polyhedral_surface surface{};
+  // scene surface{};
 };
 
 }  // namespace ensketch::sandbox

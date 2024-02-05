@@ -8,6 +8,8 @@ import libs += glbinding%lib{glbinding}
 import libs += glm%lib{glm}
 import libs += libsfml-graphics%lib{sfml-graphics}
 
+import libs += assimp%lib{assimp}
+
 exe{ensketch-sandbox}: {hxx ixx txx cxx}{**} $libs
 {
   test = true
