@@ -58,6 +58,12 @@ class viewer {
 
   opengl::camera camera{};
 
+  struct device_storage {
+    opengl::shader_program shader{};
+    opengl::vertex_array va{};
+  };
+  optional<device_storage> device{};
+
   // polyhedral_surface surface{};
   // scene surface{};
 };

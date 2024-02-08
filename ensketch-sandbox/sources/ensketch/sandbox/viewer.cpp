@@ -66,26 +66,9 @@ void viewer::init() {
   glEnable(GL_DEPTH_TEST);
 
   glClearColor(0.2f, 0.2f, 0.2f, 1.0f);
-}
 
-void viewer::free() {}
+  device = device_storage{};
 
-void viewer::process_events() {
-  sf::Event event;
-  while (window.pollEvent(event)) {
-    if (event.type == sf::Event::Closed) {
-      app().quit();
-    } else if (event.type == sf::Event::KeyPressed) {
-      switch (event.key.code) {
-        case sf::Keyboard::Escape:
-          app().quit();
-          break;
-      }
-    }
-  }
-}
-
-void viewer::render() {
   const auto vs = opengl::vertex_shader{R"##(
 #version 460 core
 
@@ -109,14 +92,34 @@ void main() {
   frag_color = vec4(1.0);
 }
 )##"};
-  auto shader = opengl::shader_program{vs, fs};
 
-  opengl::vertex_array va{};
-  va.bind();
+  device->shader = opengl::shader_program{vs, fs};
+}
 
+void viewer::free() {
+  device.reset();
+}
+
+void viewer::process_events() {
+  sf::Event event;
+  while (window.pollEvent(event)) {
+    if (event.type == sf::Event::Closed) {
+      app().quit();
+    } else if (event.type == sf::Event::KeyPressed) {
+      switch (event.key.code) {
+        case sf::Keyboard::Escape:
+          app().quit();
+          break;
+      }
+    }
+  }
+}
+
+void viewer::render() {
   glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-  glUseProgram(shader);
+  device->va.bind();
+  device->shader.bind();
   glDrawArrays(GL_TRIANGLES, 0, 3);
 
   window.display();
