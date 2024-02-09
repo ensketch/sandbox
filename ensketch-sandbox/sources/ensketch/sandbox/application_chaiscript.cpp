@@ -56,6 +56,10 @@ void application::init_chaiscript() {
       })));
 
   pimpl->objects.emplace_back(
+      "load_surface", "Load a surface mesh from file.",
+      var(fun([this](const string& path) { viewer.load_surface(path); })));
+
+  pimpl->objects.emplace_back(
       "help", "Print available functions.", var(fun([this] {
         cout << "Available Functions:\n";
         for (auto& x : pimpl->objects)

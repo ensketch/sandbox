@@ -29,9 +29,9 @@ class application {
   ///
   void quit();
 
-  void info(const string& str) { console.log(format("INFO:  {}\n", str)); }
-  void warn(const string& str) { console.log(format("WARN:  {}\n", str)); }
-  void error(const string& str) { console.log(format("ERROR: {}\n", str)); }
+  void info(const string& str) { console.log(format("INFO:  {}\n\n", str)); }
+  void warn(const string& str) { console.log(format("WARN:  {}\n\n", str)); }
+  void error(const string& str) { console.log(format("ERROR: {}\n\n", str)); }
 
   void eval_chaiscript(const filesystem::path& script);
   void eval_chaiscript(const string& code);

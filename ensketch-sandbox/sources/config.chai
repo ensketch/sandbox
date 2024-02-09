@@ -1,1 +1,2 @@
 open_viewer(500, 500);
+load_surface("/home/lyrahgames/data/models/libigl-data/armadillo.obj");

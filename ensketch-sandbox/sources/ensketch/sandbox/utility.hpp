@@ -29,4 +29,7 @@ using namespace xstd;
 using namespace gl;
 using namespace glm;
 
+using clock = chrono::high_resolution_clock;
+using duration = chrono::duration<float32>;
+
 }  // namespace ensketch::sandbox

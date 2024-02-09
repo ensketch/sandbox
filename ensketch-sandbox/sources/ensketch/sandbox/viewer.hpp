@@ -24,13 +24,28 @@ class viewer {
   void init();
   void free();
 
-  void resize();
   void resize(int width, int height);
   void process_events();
   void update();
   void update_view();
   void render();
-  void run();
+
+  void set_view_should_update() noexcept;
+
+  void turn(const vec2& angle);
+  void shift(const vec2& pixels);
+  void zoom(float scale);
+  void look_at(float x, float y);
+
+  void set_z_as_up();
+  void set_y_as_up();
+
+  void load_surface(const filesystem::path& path);
+  void async_load_surface(const filesystem::path& path);
+  void handle_surface_load_task();
+
+  void fit_view();
+  void print_surface_info();
 
   bool running() const noexcept { return _running; }
 
@@ -41,6 +56,8 @@ class viewer {
  private:
   bool _running = false;
   sf::Window window{};
+
+  sf::Vector2i mouse_pos{};
 
   //
   bool view_should_update = false;
@@ -61,11 +78,24 @@ class viewer {
   struct device_storage {
     opengl::shader_program shader{};
     opengl::vertex_array va{};
+    opengl::vertex_buffer vertices{};
+    opengl::element_buffer faces{};
   };
   optional<device_storage> device{};
 
-  // polyhedral_surface surface{};
+  polyhedral_surface surface{};
   // scene surface{};
+  bool surface_should_update = false;
+  // The loading of mesh data can take quite a long time
+  // and may let the window manager think the program is frozen
+  // if the data would be loaded by a blocking call.
+  // Here, an asynchronous task is used
+  // to get rid of this unresponsiveness.
+  future<void> surface_load_task{};
+  float32 surface_load_time{};
+  float32 surface_process_time{};
+  //
+  float bounding_radius;
 };
 
 }  // namespace ensketch::sandbox

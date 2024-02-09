@@ -22,6 +22,7 @@ void application::run() {
 
     if (viewer) {
       viewer.process_events();
+      viewer.update();
       viewer.render();
     }
 
