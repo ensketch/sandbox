@@ -3,7 +3,8 @@
 
 namespace ensketch::opengl {
 
-struct shader_object_ref : object_handle {
+template <bool is_mutable>
+struct basic_shader_object_ref : object_handle {
   using base = object_handle;
   using base::base;
 
@@ -39,7 +40,9 @@ struct shader_object_ref : object_handle {
   static auto data(string_view str) noexcept -> GLstring { return str.data(); }
   static auto size(string_view str) noexcept -> GLint { return str.size(); }
 
-  void set_source(auto&&... str) noexcept {
+  void set_source(auto&&... str) noexcept
+    requires(is_mutable)
+  {
     // OpenGL copies the shader source code strings
     // when glShaderSource is called, so an application
     // may free its copy of the source code strings
@@ -51,22 +54,23 @@ struct shader_object_ref : object_handle {
     glShaderSource(handle, count, strings.data(), lengths.data());
   }
 
-  // Specialization for 'czstring'
-  //
-  // void set_source(czstring... str) noexcept {
-  //   constexpr GLsizei count = sizeof...(str);
-  //   array<GLstring, count> strings{str...};
-  //   glShaderSource(handle, count, strings.data(), nullptr);
-  // }
+  void compile() noexcept
+    requires(is_mutable)
+  {
+    glCompileShader(handle);
+  }
 
-  void compile() noexcept { glCompileShader(handle); }
-
-  bool compile(auto&&... str) {
+  bool compile(auto&&... str) noexcept
+    requires(is_mutable)
+  {
     set_source(forward<decltype(str)>(str)...);
     compile();
     return compiled();
   }
 };
+
+using shader_object_const_ref = basic_shader_object_ref<false>;
+using shader_object_ref = basic_shader_object_ref<true>;
 
 constexpr auto shader_object_type_name(GLenum shader_object_type) -> czstring {
   switch (shader_object_type) {
@@ -108,6 +112,11 @@ class shader_object final : public shader_object_ref {
   static constexpr auto type_name() noexcept {
     return shader_object_type_name(type());
   }
+
+  // operator shader_object_ref() noexcept { return handle; }
+  operator shader_object_const_ref() const noexcept { return handle; }
+  auto ref() noexcept -> shader_object_ref { return handle; }
+  auto ref() const noexcept -> shader_object_const_ref { return handle; }
 
   shader_object() {
     handle = glCreateShader(shader_object_type);

@@ -3,10 +3,12 @@
 
 namespace ensketch::opengl {
 
-struct shader_program_ref : object_handle {
+template <bool is_mutable>
+struct basic_shader_program_ref : object_handle {
   using base = object_handle;
   using base::base;
-  using base::handle;
+
+  using this_ref = basic_shader_program_ref<is_mutable>;
 
   bool valid() const noexcept { return glIsProgram(handle) == GL_TRUE; }
 
@@ -34,32 +36,42 @@ struct shader_program_ref : object_handle {
     return info_log;
   }
 
-  auto use() const noexcept -> shader_program_ref {
+  auto use() const noexcept -> this_ref {
     glUseProgram(handle);
     return handle;
   }
 
-  auto attach(shader_object_ref shader) noexcept -> shader_program_ref {
+  auto attach(shader_object_const_ref shader) noexcept -> this_ref
+    requires(is_mutable)
+  {
     glAttachShader(handle, shader);
     return handle;
   }
 
-  auto detach(shader_object_ref shader) noexcept -> shader_program_ref {
+  auto detach(shader_object_const_ref shader) noexcept -> this_ref
+    requires(is_mutable)
+  {
     glDetachShader(handle, shader);
     return handle;
   }
 
-  auto link() noexcept -> shader_program_ref {
+  auto link() noexcept -> this_ref
+    requires(is_mutable)
+  {
     glLinkProgram(handle);
     return handle;
   }
 
-  auto set(czstring name, auto&& value) -> shader_program_ref {
+  auto set(czstring name, auto&& value) -> this_ref
+    requires(is_mutable)
+  {
     try_set(valid_uniform_location(name), forward<decltype(value)>(value));
     return handle;
   }
 
-  auto try_set(czstring name, auto&& value) noexcept -> shader_program_ref {
+  auto try_set(czstring name, auto&& value) noexcept -> this_ref
+    requires(is_mutable)
+  {
     try_set(uniform_location(name), forward<decltype(value)>(value));
     return handle;
   }
@@ -189,9 +201,17 @@ struct shader_program_ref : object_handle {
   }
 };
 
+using shader_program_const_ref = basic_shader_program_ref<false>;
+using shader_program_ref = basic_shader_program_ref<true>;
+
 class shader_program final : public shader_program_ref {
  public:
   using base = shader_program_ref;
+
+  // operator shader_object_ref() noexcept { return handle; }
+  operator shader_program_const_ref() const noexcept { return handle; }
+  auto ref() noexcept -> shader_program_ref { return handle; }
+  auto ref() const noexcept -> shader_program_const_ref { return handle; }
 
   shader_program() {
     handle = glCreateProgram();
