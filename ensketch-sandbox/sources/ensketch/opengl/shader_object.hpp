@@ -3,10 +3,83 @@
 
 namespace ensketch::opengl {
 
+struct shader_object_handle : object_handle {
+  using base = object_handle;
+  using base::base;
+
+  bool valid() const noexcept { return glIsShader(handle) == GL_TRUE; }
+
+  bool compiled() const noexcept {
+    // 'glGetShaderiv' will generate errors 'GL_INVALID_VALUE' or
+    // 'GL_INVALID_OPERATION' if the shader handle is not valid.
+    // If an error is generated, no change is made to 'status'.
+    // Also, newly generated shader objects are not compiled.
+    // So, 'status' can only be 'GL_TRUE'
+    // if the shader is valid and compiled.
+    //
+    auto status = static_cast<GLint>(GL_FALSE);
+    glGetShaderiv(handle, GL_COMPILE_STATUS, &status);
+    return static_cast<GLboolean>(status) == GL_TRUE;
+  }
+
+  operator bool() const noexcept { return compiled(); }
+
+  auto info_log() const -> string {
+    GLint info_log_size;
+    glGetShaderiv(handle, GL_INFO_LOG_LENGTH, &info_log_size);
+    string info_log{};
+    info_log.resize(info_log_size);
+    glGetShaderInfoLog(handle, info_log_size, nullptr, info_log.data());
+    return info_log;
+  }
+
+  using GLstring = const GLchar*;
+  static auto data(czstring str) noexcept -> GLstring { return str; }
+  static auto size(czstring str) noexcept -> GLint { return -1; }
+  static auto data(string_view str) noexcept -> GLstring { return str.data(); }
+  static auto size(string_view str) noexcept -> GLint { return str.size(); }
+
+  void set_source(auto&&... str) noexcept {
+    // OpenGL copies the shader source code strings
+    // when glShaderSource is called, so an application
+    // may free its copy of the source code strings
+    // immediately after the function returns.
+    //
+    constexpr GLsizei count = sizeof...(str);
+    array<GLstring, count> strings{data(str)...};
+    array<GLint, count> lengths{size(str)...};
+    glShaderSource(handle, count, strings.data(), lengths.data());
+  }
+
+  // Specialization for 'czstring'
+  //
+  // void set_source(czstring... str) noexcept {
+  //   constexpr GLsizei count = sizeof...(str);
+  //   array<GLstring, count> strings{str...};
+  //   glShaderSource(handle, count, strings.data(), nullptr);
+  // }
+
+  void compile() noexcept { glCompileShader(handle); }
+
+  bool compile(auto&&... str) {
+    set_source(forward<decltype(str)>(str)...);
+    compile();
+    return compiled();
+  }
+};
+
 constexpr auto shader_object_type_name(GLenum shader_object_type) -> czstring {
   switch (shader_object_type) {
     case GL_VERTEX_SHADER:
       return "vertex";
+      break;
+
+    case GL_TESS_CONTROL_SHADER:
+      return "tessellation control";
+      break;
+
+    case GL_TESS_EVALUATION_SHADER:
+      return "tessellation evaluation";
       break;
 
     case GL_GEOMETRY_SHADER:
@@ -17,187 +90,89 @@ constexpr auto shader_object_type_name(GLenum shader_object_type) -> czstring {
       return "fragment";
       break;
 
+    case GL_COMPUTE_SHADER:
+      return "compute";
+      break;
+
     default:
       return "unknown";
   }
 }
 
-inline constexpr struct warnings_as_errors_t {
-} warnings_as_errors{};
-inline constexpr struct ignore_warnings_t {
-} ignore_warnings{};
-
-struct shader_compile_error : runtime_error {
-  using base = runtime_error;
-  shader_compile_error(auto&& x) : base(forward<decltype(x)>(x)) {}
-};
-
 template <GLenum shader_object_type>
-class shader_object {
-  using string = std::string;
-
+class shader_object final : public shader_object_handle {
  public:
-  // struct shader_compile_error : runtime_error {
-  //   using base = runtime_error;
-  //   shader_compile_error(auto&& x) : base(forward<decltype(x)>(x)) {}
-  // };
+  using base = shader_object_handle;
 
-  static constexpr auto type() -> GLenum { return shader_object_type; }
-  static constexpr auto type_name() -> czstring {
+  static constexpr auto type() noexcept { return shader_object_type; }
+  static constexpr auto type_name() noexcept {
     return shader_object_type_name(type());
   }
 
-  shader_object() = default;
-
-  // Using exceptions for warnings is a bad idea,
-  // because they break execution order.
-
-  // Create the shader object by compiling the source code
-  // and then writing its info log into the given string reference.
-
-  shader_object(czstring source, auto&& warning_handle) {
-    receive_handle();
-    compile(source, std::forward<decltype(warning_handle)>(warning_handle));
+  shader_object() {
+    handle = glCreateShader(shader_object_type);
+    // Not receiving a valid handle is exceptional.
+    if (!handle)
+      throw runtime_error(format(
+          "Failed to receive handle for {} shader object.", type_name()));
   }
 
-  shader_object(czstring source) : shader_object{source, warnings_as_errors} {}
-
-  ~shader_object() {
-    // Zero values are ignored by this function.
-    glDeleteShader(handle);
+  shader_object(auto&&... str) : shader_object{} {
+    set_source(forward<decltype(str)>(str)...);
+    compile();
   }
 
-  // Copying is not allowed.
+  ~shader_object() noexcept { glDeleteShader(handle); }
+
+  // Copying is NOT allowed.
+  //
   shader_object(const shader_object&) = delete;
   shader_object& operator=(const shader_object&) = delete;
 
-  // Moving
-  shader_object(shader_object&& x) : handle{x.handle} { x.handle = 0; }
+  // Moving is allowed.
+  //
+  shader_object(shader_object&& x) : base{x.handle} { x.handle = 0; }
   shader_object& operator=(shader_object&& x) {
     swap(handle, x.handle);
     return *this;
   }
-
-  // This class is only a wrapper.
-  // Because of that, the underlying handle can also
-  // be used directly and implicitly.
-  // This may introduce consistency problems.
-  operator GLuint() const { return handle; }
-
-  // Checks if shader object handles an actual shader.
-  // Should return false when called after the default constructor.
-  bool exists() noexcept {
-    // May already be enough when handle is not used from the outside.
-    // return handle;
-    // But this approach is more secure.
-    return glIsShader(handle) == GL_TRUE;
-  }
-
- private:
-  void receive_handle() {
-    handle = glCreateShader(shader_object_type);
-    if (!handle)
-      throw runtime_error(string("Failed to receive handle for ") +
-                          type_name() + " shader object.");
-  }
-
-  bool compile_failed() noexcept {
-    GLint compile_status;
-    glGetShaderiv(handle, GL_COMPILE_STATUS, &compile_status);
-    return static_cast<GLboolean>(compile_status) == GL_FALSE;
-  }
-
-  void write_compile_info_log(string& info_log) {
-    GLint info_log_size;
-    glGetShaderiv(handle, GL_INFO_LOG_LENGTH, &info_log_size);
-    info_log.resize(info_log_size);
-    if (info_log_size)
-      glGetShaderInfoLog(handle, info_log_size, nullptr, info_log.data());
-  }
-
-  void throw_compile_error() {
-    throw shader_compile_error(string("Failed to compile ") + type_name() +
-                               " shader object.");
-  }
-
-  void throw_compile_error(const string& info_log) {
-    throw shader_compile_error(string("Failed to compile ") + type_name() +
-                               " shader object.\n" + info_log);
-  }
-
-  void compile(czstring source) {
-    glShaderSource(handle, 1, &source, nullptr);
-    glCompileShader(handle);
-  }
-
-  void compile(czstring source, string& info_log) {
-    compile(source);
-    write_compile_info_log(info_log);
-    if (compile_failed()) throw_compile_error(info_log);
-  }
-
-  void compile(czstring source, warnings_as_errors_t) {
-    compile(source);
-    string info_log;
-    write_compile_info_log(info_log);
-    if (compile_failed() || !info_log.empty()) throw_compile_error(info_log);
-  }
-
-  void compile(czstring source, ignore_warnings_t) {
-    compile(source);
-    if (compile_failed()) {
-      string info_log;
-      write_compile_info_log(info_log);
-      throw_compile_error(info_log);
-    }
-  }
-
-  void compile(czstring source, auto&& warning_callback) {
-    string info_log;
-    compile(source, info_log);
-    if (!info_log.empty())
-      std::forward<decltype(warning_callback)>(warning_callback)(info_log);
-  }
-
-  GLuint handle{};
 };
 
 using vertex_shader = shader_object<GL_VERTEX_SHADER>;
+using tessellation_control_shader = shader_object<GL_TESS_CONTROL_SHADER>;
+using tessellation_evaluation_shader = shader_object<GL_TESS_EVALUATION_SHADER>;
 using geometry_shader = shader_object<GL_GEOMETRY_SHADER>;
 using fragment_shader = shader_object<GL_FRAGMENT_SHADER>;
+using compute_shader = shader_object<GL_COMPUTE_SHADER>;
 
-inline auto vertex_shader_from_file(czstring path, auto&& warning_handle)
+inline auto vertex_shader_from_file(const filesystem::path& path)
     -> vertex_shader {
-  return vertex_shader{string_from_file(path).c_str(),
-                       std::forward<decltype(warning_handle)>(warning_handle)};
+  return vertex_shader{string_from_file(path)};
 }
 
-inline auto vertex_shader_from_file(czstring path) {
-  return vertex_shader_from_file(path, warnings_as_errors);
+inline auto tessellation_control_shader_from_file(const filesystem::path& path)
+    -> tessellation_control_shader {
+  return tessellation_control_shader{string_from_file(path)};
 }
 
-inline auto geometry_shader_from_file(
-    czstring path,
-    auto&& warning_handle = warnings_as_errors) -> geometry_shader {
-  return geometry_shader{
-      string_from_file(path).c_str(),
-      std::forward<decltype(warning_handle)>(warning_handle)};
+inline auto tessellation_evaluation_shader_from_file(
+    const filesystem::path& path) -> tessellation_evaluation_shader {
+  return tessellation_evaluation_shader{string_from_file(path)};
 }
 
-inline auto geometry_shader_from_file(czstring path) {
-  return geometry_shader_from_file(path, warnings_as_errors);
+inline auto geometry_shader_from_file(const filesystem::path& path)
+    -> geometry_shader {
+  return geometry_shader{string_from_file(path)};
 }
 
-inline auto fragment_shader_from_file(
-    czstring path,
-    auto&& warning_handle = warnings_as_errors) -> fragment_shader {
-  return fragment_shader{
-      string_from_file(path).c_str(),
-      std::forward<decltype(warning_handle)>(warning_handle)};
+inline auto fragment_shader_from_file(const filesystem::path& path)
+    -> fragment_shader {
+  return fragment_shader{string_from_file(path)};
 }
 
-inline auto fragment_shader_from_file(czstring path) {
-  return fragment_shader_from_file(path, warnings_as_errors);
+inline auto compute_shader_from_file(const filesystem::path& path)
+    -> compute_shader {
+  return compute_shader{string_from_file(path)};
 }
 
 }  // namespace ensketch::opengl

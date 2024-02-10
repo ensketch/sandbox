@@ -74,17 +74,10 @@ void viewer::init() {
 
   device = device_storage{};
 
-  const auto vs = opengl::vertex_shader{R"##(
-#version 460 core
-
+  const auto vs = opengl::vertex_shader{"#version 460 core\n",  //
+                                        R"##(
 uniform mat4 projection;
 uniform mat4 view;
-
-vec3 vertices[3] = {
-  vec3(-0.5, -0.5, 0.0),
-  vec3(0.5, -0.5, 0.0),
-  vec3(0.0, 0.5, 0.0)
-};
 
 layout (location = 0) in vec3 p;
 layout (location = 1) in vec3 n;
@@ -92,7 +85,6 @@ layout (location = 1) in vec3 n;
 out vec3 normal;
 
 void main() {
-  // gl_Position = projection * view * vec4(vertices[gl_VertexID], 1.0);
   gl_Position = projection * view * vec4(p, 1.0);
   normal = vec3(view * vec4(n, 0.0));
 }
@@ -106,7 +98,6 @@ in vec3 normal;
 layout (location = 0) out vec4 frag_color;
 
 void main() {
-  // frag_color = vec4(1.0);
   vec3 n = normalize(normal);
   vec3 view_dir = vec3(0.0, 0.0, 1.0);
   vec3 light_dir = view_dir;
@@ -116,7 +107,21 @@ void main() {
 }
 )##"};
 
-  device->shader = opengl::shader_program{vs, fs};
+  if (!vs) {
+    app().error(vs.info_log());
+    app().close_viewer();
+    return;
+  }
+  if (!fs) {
+    app().error(fs.info_log());
+    app().close_viewer();
+    return;
+  }
+
+  // device->shader = opengl::shader_program{vs, fs};
+  device->shader.attach(vs);
+  device->shader.attach(fs);
+  device->shader.link();
 
   device->va.bind();
   device->vertices.bind();
