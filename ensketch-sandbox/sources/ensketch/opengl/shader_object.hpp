@@ -3,7 +3,7 @@
 
 namespace ensketch::opengl {
 
-struct shader_object_handle : object_handle {
+struct shader_object_ref : object_handle {
   using base = object_handle;
   using base::base;
 
@@ -100,9 +100,9 @@ constexpr auto shader_object_type_name(GLenum shader_object_type) -> czstring {
 }
 
 template <GLenum shader_object_type>
-class shader_object final : public shader_object_handle {
+class shader_object final : public shader_object_ref {
  public:
-  using base = shader_object_handle;
+  using base = shader_object_ref;
 
   static constexpr auto type() noexcept { return shader_object_type; }
   static constexpr auto type_name() noexcept {

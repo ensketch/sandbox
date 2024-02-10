@@ -112,16 +112,18 @@ void main() {
     app().close_viewer();
     return;
   }
+
   if (!fs) {
     app().error(fs.info_log());
     app().close_viewer();
     return;
   }
 
-  // device->shader = opengl::shader_program{vs, fs};
-  device->shader.attach(vs);
-  device->shader.attach(fs);
-  device->shader.link();
+  if (!device->shader.attach(vs).attach(fs).link().linked()) {
+    app().error(device->shader.info_log());
+    app().close_viewer();
+    return;
+  }
 
   device->va.bind();
   device->vertices.bind();
@@ -238,8 +240,7 @@ void viewer::update_view() {
   // });
 
   if (device)
-    device->shader.bind()
-        .try_set("projection", camera.projection_matrix())
+    device->shader.try_set("projection", camera.projection_matrix())
         .try_set("view", camera.view_matrix());
 }
 
@@ -248,7 +249,7 @@ void viewer::render() {
 
   device->va.bind();
   device->faces.bind();
-  device->shader.bind();
+  device->shader.use();
   glDrawElements(GL_TRIANGLES, 3 * surface.faces.size(), GL_UNSIGNED_INT, 0);
   // glDrawArrays(GL_TRIANGLES, 0, 3);
 
