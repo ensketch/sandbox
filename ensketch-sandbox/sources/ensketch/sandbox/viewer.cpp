@@ -1,6 +1,7 @@
 #include <ensketch/sandbox/viewer.hpp>
 //
 #include <ensketch/sandbox/application.hpp>
+#include <ensketch/sandbox/ray_tracer.hpp>
 //
 #include <ensketch/opengl/shader_object.hpp>
 #include <ensketch/opengl/shader_program.hpp>
@@ -277,6 +278,9 @@ void viewer::process_events() {
         case sf::Mouse::Middle:
           // look_at(event.mouseButton.x, event.mouseButton.y);
           break;
+        case sf::Mouse::Right:
+          select_vertex(mouse_pos.x, mouse_pos.y);
+          break;
       }
     } else if (event.type == sf::Event::KeyPressed) {
       switch (event.key.code) {
@@ -485,6 +489,21 @@ void viewer::print_surface_info() {
       "faces = {}\n",
       surface_load_time, surface_process_time, surface.vertices.size(),
       surface.faces.size()));
+}
+
+void viewer::select_vertex(float x, float y) noexcept {
+  const auto r = primary_ray(camera, x, y);
+  const auto p = intersection(r, surface);
+  if (!p) return;
+
+  const auto& f = surface.faces[p.f];
+  const auto w = real(1) - p.u - p.v;
+
+  // const auto position = surface.vertices[f[0]].position * w +
+  //                       surface.vertices[f[1]].position * u +
+  //                       surface.vertices[f[2]].position * v;
+  // return f[0];
+  app().info(format("Vertex ID = {}", f[0]));
 }
 
 }  // namespace ensketch::sandbox

@@ -53,6 +53,8 @@ class viewer {
     window.setVerticalSyncEnabled(value);
   }
 
+  void select_vertex(float x, float y) noexcept;
+
  private:
   bool _running = false;
   sf::Window window{};
