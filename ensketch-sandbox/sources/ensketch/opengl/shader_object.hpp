@@ -3,8 +3,7 @@
 
 namespace ensketch::opengl {
 
-template <bool is_mutable>
-struct basic_shader_object_ref : object_handle {
+struct shader_object_handle : object_handle {
   using base = object_handle;
   using base::base;
 
@@ -23,7 +22,7 @@ struct basic_shader_object_ref : object_handle {
     return static_cast<GLboolean>(status) == GL_TRUE;
   }
 
-  operator bool() const noexcept { return compiled(); }
+  explicit operator bool() const noexcept { return compiled(); }
 
   auto info_log() const -> string {
     GLint info_log_size;
@@ -40,9 +39,7 @@ struct basic_shader_object_ref : object_handle {
   static auto data(string_view str) noexcept -> GLstring { return str.data(); }
   static auto size(string_view str) noexcept -> GLint { return str.size(); }
 
-  void set_source(auto&&... str) noexcept
-    requires(is_mutable)
-  {
+  void set_source(auto&&... str) noexcept {
     // OpenGL copies the shader source code strings
     // when glShaderSource is called, so an application
     // may free its copy of the source code strings
@@ -54,23 +51,14 @@ struct basic_shader_object_ref : object_handle {
     glShaderSource(handle, count, strings.data(), lengths.data());
   }
 
-  void compile() noexcept
-    requires(is_mutable)
-  {
-    glCompileShader(handle);
-  }
+  void compile() noexcept { glCompileShader(handle); }
 
-  bool compile(auto&&... str) noexcept
-    requires(is_mutable)
-  {
+  bool compile(auto&&... str) noexcept {
     set_source(forward<decltype(str)>(str)...);
     compile();
     return compiled();
   }
 };
-
-using shader_object_const_ref = basic_shader_object_ref<false>;
-using shader_object_ref = basic_shader_object_ref<true>;
 
 constexpr auto shader_object_type_name(GLenum shader_object_type) -> czstring {
   switch (shader_object_type) {
@@ -104,19 +92,22 @@ constexpr auto shader_object_type_name(GLenum shader_object_type) -> czstring {
 }
 
 template <GLenum shader_object_type>
-class shader_object final : public shader_object_ref {
+class shader_object final : public shader_object_handle {
  public:
-  using base = shader_object_ref;
+  using base = shader_object_handle;
+  using const_base = const shader_object_handle;
 
   static constexpr auto type() noexcept { return shader_object_type; }
   static constexpr auto type_name() noexcept {
     return shader_object_type_name(type());
   }
 
-  // operator shader_object_ref() noexcept { return handle; }
-  operator shader_object_const_ref() const noexcept { return handle; }
-  auto ref() noexcept -> shader_object_ref { return handle; }
-  auto ref() const noexcept -> shader_object_const_ref { return handle; }
+  // operator ref<>() noexcept { return handle; }
+  // operator const_ref<shader_object<shader_object_type>>() const noexcept {
+  //   return handle;
+  // }
+  // auto ref() noexcept -> shader_object_ref { return handle; }
+  // auto ref() const noexcept -> shader_object_const_ref { return handle; }
 
   shader_object() {
     handle = glCreateShader(shader_object_type);
@@ -146,6 +137,19 @@ class shader_object final : public shader_object_ref {
     return *this;
   }
 };
+
+// template <GLenum shader_object_type>
+// struct ref<shader_object<shader_object_type>>
+//     : shader_object<shader_object_type>::base {};
+
+// template <GLenum shader_object_type>
+// struct const_ref<shader_object<shader_object_type>>
+//     : shader_object<shader_object_type>::const_base {
+//   using base = shader_object<shader_object_type>::const_base;
+//   // using base::handle;
+//   constexpr const_ref(const shader_object<shader_object_type>& shader) noexcept
+//       : base{shader.id()} {}
+// };
 
 using vertex_shader = shader_object<GL_VERTEX_SHADER>;
 using tessellation_control_shader = shader_object<GL_TESS_CONTROL_SHADER>;

@@ -3,12 +3,15 @@
 
 namespace ensketch::opengl {
 
-template <bool is_mutable>
-struct basic_shader_program_ref : object_handle {
+struct shader_program_ref : object_handle {
   using base = object_handle;
   using base::base;
 
-  using this_ref = basic_shader_program_ref<is_mutable>;
+  // using const_ref = shader_program_ref<false>;
+  using this_ref = shader_program_ref;
+
+  // constexpr auto ref() noexcept -> this_ref { return handle; }
+  // constexpr auto ref() const noexcept -> const_ref { return handle; }
 
   bool valid() const noexcept { return glIsProgram(handle) == GL_TRUE; }
 
@@ -25,7 +28,7 @@ struct basic_shader_program_ref : object_handle {
     return static_cast<GLboolean>(status) == GL_TRUE;
   }
 
-  operator bool() const noexcept { return linked(); }
+  explicit operator bool() const noexcept { return linked(); }
 
   auto info_log() const -> string {
     GLint info_log_size;
@@ -36,44 +39,53 @@ struct basic_shader_program_ref : object_handle {
     return info_log;
   }
 
-  auto use() const noexcept -> this_ref {
-    glUseProgram(handle);
-    return handle;
+  void use() const noexcept { glUseProgram(handle); }
+
+  void attach(shader_object_handle shader) noexcept {
+    glAttachShader(id(), shader.id());
   }
 
-  auto attach(shader_object_const_ref shader) noexcept -> this_ref
-    requires(is_mutable)
-  {
-    glAttachShader(handle, shader);
-    return handle;
+  void detach(shader_object_handle shader) noexcept {
+    glDetachShader(id(), shader.id());
   }
 
-  auto detach(shader_object_const_ref shader) noexcept -> this_ref
-    requires(is_mutable)
-  {
-    glDetachShader(handle, shader);
-    return handle;
-  }
+  // void attach(const_ref<vertex_shader> shader) noexcept {
+  //   // assert(shader.compiled());
+  //   // shader.compile();
+  //   // const shader_object_handle tmp = shader;
+  //   // tmp.compile();
+  //   glAttachShader(id(), shader.id());
+  // }
 
-  auto link() noexcept -> this_ref
-    requires(is_mutable)
-  {
-    glLinkProgram(handle);
-    return handle;
-  }
+  // void attach(const_ref<fragment_shader> shader) noexcept {
+  //   glAttachShader(id(), shader.id());
+  // }
 
-  auto set(czstring name, auto&& value) -> this_ref
-    requires(is_mutable)
-  {
+  // void detach(const_ref<vertex_shader> shader) noexcept {
+  //   glDetachShader(id(), shader.id());
+  // }
+
+  // void detach(const_ref<fragment_shader> shader) noexcept {
+  //   glDetachShader(id(), shader.id());
+  // }
+
+  // template <GLenum shader_object_type>
+  // void attach(const_ref<shader_object<shader_object_type>> shader) noexcept {
+  //   glAttachShader(id(), shader.id());
+  // }
+  // template <GLenum shader_object_type>
+  // void detach(const_ref<shader_object<shader_object_type>> shader) noexcept {
+  //   glDetachShader(id(), shader.id());
+  // }
+
+  void link() noexcept { glLinkProgram(handle); }
+
+  void set(czstring name, auto&& value) {
     try_set(valid_uniform_location(name), forward<decltype(value)>(value));
-    return handle;
   }
 
-  auto try_set(czstring name, auto&& value) noexcept -> this_ref
-    requires(is_mutable)
-  {
+  void try_set(czstring name, auto&& value) noexcept {
     try_set(uniform_location(name), forward<decltype(value)>(value));
-    return handle;
   }
 
  private:
@@ -201,17 +213,17 @@ struct basic_shader_program_ref : object_handle {
   }
 };
 
-using shader_program_const_ref = basic_shader_program_ref<false>;
-using shader_program_ref = basic_shader_program_ref<true>;
+// using shader_program_const_ref = shader_program_ref<false>;
+// using shader_program_ref = shader_program_ref<true>;
 
 class shader_program final : public shader_program_ref {
  public:
   using base = shader_program_ref;
 
   // operator shader_object_ref() noexcept { return handle; }
-  operator shader_program_const_ref() const noexcept { return handle; }
-  auto ref() noexcept -> shader_program_ref { return handle; }
-  auto ref() const noexcept -> shader_program_const_ref { return handle; }
+  // operator shader_program_const_ref() const noexcept { return handle; }
+  // auto ref() noexcept -> shader_program_ref { return handle; }
+  // auto ref() const noexcept -> shader_program_const_ref { return handle; }
 
   shader_program() {
     handle = glCreateProgram();
@@ -234,5 +246,48 @@ class shader_program final : public shader_program_ref {
     return *this;
   }
 };
+
+// static_assert(same_as<ref<shader_program_ref>, shader_program_ref>);
+// static_assert(same_as<ref<shader_program_ref&>, shader_program_ref>);
+// static_assert(same_as<ref<const shader_program_ref>, shader_program_const_ref>);
+// static_assert(
+//     same_as<ref<const shader_program_ref&>, shader_program_const_ref>);
+// //
+// static_assert(same_as<const_ref<shader_program_ref>, shader_program_const_ref>);
+// static_assert(
+//     same_as<const_ref<shader_program_ref&>, shader_program_const_ref>);
+// static_assert(
+//     same_as<const_ref<const shader_program_ref>, shader_program_const_ref>);
+// static_assert(
+//     same_as<const_ref<const shader_program_ref&>, shader_program_const_ref>);
+// //
+// static_assert(same_as<ref<shader_program_const_ref>, shader_program_const_ref>);
+// static_assert(
+//     same_as<ref<shader_program_const_ref&>, shader_program_const_ref>);
+// static_assert(
+//     same_as<ref<const shader_program_const_ref>, shader_program_const_ref>);
+// static_assert(
+//     same_as<ref<const shader_program_const_ref&>, shader_program_const_ref>);
+// //
+// static_assert(
+//     same_as<const_ref<shader_program_const_ref>, shader_program_const_ref>);
+// static_assert(
+//     same_as<const_ref<shader_program_const_ref&>, shader_program_const_ref>);
+// static_assert(same_as<const_ref<const shader_program_const_ref>,
+//                       shader_program_const_ref>);
+// static_assert(same_as<const_ref<const shader_program_const_ref&>,
+//                       shader_program_const_ref>);
+// //
+// static_assert(same_as<ref<shader_program>, shader_program_ref>);
+// static_assert(same_as<ref<shader_program&>, shader_program_ref>);
+// static_assert(same_as<ref<const shader_program>, shader_program_const_ref>);
+// static_assert(same_as<ref<const shader_program&>, shader_program_const_ref>);
+// //
+// static_assert(same_as<const_ref<shader_program>, shader_program_const_ref>);
+// static_assert(same_as<const_ref<shader_program&>, shader_program_const_ref>);
+// static_assert(
+//     same_as<const_ref<const shader_program>, shader_program_const_ref>);
+// static_assert(
+//     same_as<const_ref<const shader_program&>, shader_program_const_ref>);
 
 }  // namespace ensketch::opengl

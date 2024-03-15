@@ -20,6 +20,8 @@ void /*APIENTRY*/ glDebugOutput(GLenum source,
 }
 }  // namespace
 
+// OpenGL will be set to 4.6.
+//
 sf::ContextSettings viewer::opengl_context_settings{
     /*.depthBits = */ 24,
     /*.stencilBits = */ 8,
@@ -119,7 +121,11 @@ void main() {
     return;
   }
 
-  if (!device->shader.attach(vs).attach(fs).link().linked()) {
+  device->shader.attach(vs);
+  device->shader.attach(fs);
+  device->shader.link();
+
+  if (!device->shader.linked()) {
     app().error(device->shader.info_log());
     app().close_viewer();
     return;
@@ -239,9 +245,10 @@ void viewer::update_view() {
   //       .try_set("viewport_height", camera.screen_height());
   // });
 
-  if (device)
-    device->shader.try_set("projection", camera.projection_matrix())
-        .try_set("view", camera.view_matrix());
+  if (device) {
+    device->shader.try_set("projection", camera.projection_matrix());
+    device->shader.try_set("view", camera.view_matrix());
+  }
 }
 
 void viewer::render() {

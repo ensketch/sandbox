@@ -49,13 +49,6 @@ void application::init_chaiscript() {
                               var(fun([this]() { close_viewer(); })));
 
   pimpl->objects.emplace_back(
-      "set_opengl_version", "Set the OpenGL version used for the viewer.",
-      var(fun([this](int major, int minor) {
-        ensketch::sandbox::viewer::opengl_context_settings.majorVersion = major;
-        ensketch::sandbox::viewer::opengl_context_settings.minorVersion = minor;
-      })));
-
-  pimpl->objects.emplace_back(
       "load_surface", "Load a surface mesh from file.",
       var(fun([this](const string& path) { viewer.load_surface(path); })));
 
