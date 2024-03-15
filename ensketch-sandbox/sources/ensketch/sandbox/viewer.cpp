@@ -84,33 +84,133 @@ uniform mat4 view;
 layout (location = 0) in vec3 p;
 layout (location = 1) in vec3 n;
 
+out vec3 position;
 out vec3 normal;
 
 void main() {
   gl_Position = projection * view * vec4(p, 1.0);
+  position = vec3(view * vec4(p, 1.0));
   normal = vec3(view * vec4(n, 0.0));
+}
+)##"};
+
+  const auto gs = opengl::geometry_shader{R"##(
+#version 460 core
+
+uniform mat4 view;
+uniform mat4 viewport;
+
+layout (triangles) in;
+layout (triangle_strip, max_vertices = 3) out;
+
+in vec3 position[];
+in vec3 normal[];
+
+out vec3 pos;
+out vec3 nor;
+out vec3 vnor;
+noperspective out vec3 edge_distance;
+
+void main(){
+  vec3 p0 = vec3(viewport * (gl_in[0].gl_Position /
+                             gl_in[0].gl_Position.w));
+  vec3 p1 = vec3(viewport * (gl_in[1].gl_Position /
+                             gl_in[1].gl_Position.w));
+  vec3 p2 = vec3(viewport * (gl_in[2].gl_Position /
+                             gl_in[2].gl_Position.w));
+
+  float a = length(p1 - p2);
+  float b = length(p2 - p0);
+  float c = length(p1 - p0);
+
+  vec3 n = normalize(cross(gl_in[1].gl_Position.xyz - gl_in[0].gl_Position.xyz, gl_in[2].gl_Position.xyz - gl_in[0].gl_Position.xyz));
+
+  float alpha = acos((b * b + c * c - a * a) / (2.0 * b * c));
+  float beta  = acos((a * a + c * c - b * b) / (2.0 * a * c));
+
+  float ha = abs(c * sin(beta));
+  float hb = abs(c * sin(alpha));
+  float hc = abs(b * sin(alpha));
+
+  edge_distance = vec3(ha, 0, 0);
+  nor = n;
+  vnor = normal[0];
+  pos = position[0];
+  gl_Position = gl_in[0].gl_Position;
+  EmitVertex();
+
+  edge_distance = vec3(0, hb, 0);
+  nor = n;
+  vnor = normal[1];
+  pos = position[1];
+  gl_Position = gl_in[1].gl_Position;
+  EmitVertex();
+
+  edge_distance = vec3(0, 0, hc);
+  nor = n;
+  vnor = normal[2];
+  pos = position[2];
+  gl_Position = gl_in[2].gl_Position;
+  EmitVertex();
+
+  EndPrimitive();
 }
 )##"};
 
   const auto fs = opengl::fragment_shader{R"##(
 #version 460 core
 
-in vec3 normal;
+// uniform bool lighting = true;
+
+in vec3 pos;
+in vec3 nor;
+in vec3 vnor;
+noperspective in vec3 edge_distance;
 
 layout (location = 0) out vec4 frag_color;
 
 void main() {
-  vec3 n = normalize(normal);
-  vec3 view_dir = vec3(0.0, 0.0, 1.0);
-  vec3 light_dir = view_dir;
-  float d = max(dot(light_dir, n), 0.0);
-  vec3 color = vec3(vec2(0.2 + 1.0 * pow(d,1000) + 0.75 * pow(d,0.2)),1.0);
-  frag_color = vec4(color, 1.0);
+  // vec3 n = normalize(normal);
+  // vec3 view_dir = vec3(0.0, 0.0, 1.0);
+  // vec3 light_dir = view_dir;
+  // float d = max(dot(light_dir, n), 0.0);
+  // vec3 color = vec3(vec2(0.2 + 1.0 * pow(d,1000) + 0.75 * pow(d,0.2)),1.0);
+  // frag_color = vec4(color, 1.0);
+
+  // Compute distance from edges.
+  float d = min(edge_distance.x, edge_distance.y);
+  d = min(d, edge_distance.z);
+  float line_width = 0.01;
+  float line_delta = 1.0;
+  float alpha = 1.0;
+  vec4 line_color = vec4(vec3(0.5), alpha);
+  float mix_value =
+      smoothstep(line_width - line_delta, line_width + line_delta, d);
+  // float mix_value = 1.0;
+  // Compute viewer shading.
+  float s = abs(normalize(nor).z);
+  // float s = abs(normalize(vnor).z);
+  float light = 0.2 + 1.0 * pow(s, 1000) + 0.75 * pow(s, 0.2);
+  // float light = 0.2 + 0.75 * pow(s, 0.2);
+  vec4 light_color = vec4(vec3(light), alpha);
+  // Mix both color values.
+  // vec4 color = vec4(vec3(colormap(hea)), alpha);
+  //light_color = mix(color, light_color, 0.0);
+  // if (!lighting) light_color = color;
+  frag_color = mix(line_color, light_color, mix_value);
+  // if (mix_value > 0.9) discard;
+  //   frag_color = (1 - mix_value) * line_color;
 }
 )##"};
 
   if (!vs) {
     app().error(vs.info_log());
+    app().close_viewer();
+    return;
+  }
+
+  if (!gs) {
+    app().error(gs.info_log());
     app().close_viewer();
     return;
   }
@@ -122,6 +222,7 @@ void main() {
   }
 
   device->shader.attach(vs);
+  device->shader.attach(gs);
   device->shader.attach(fs);
   device->shader.link();
 
@@ -248,6 +349,7 @@ void viewer::update_view() {
   if (device) {
     device->shader.try_set("projection", camera.projection_matrix());
     device->shader.try_set("view", camera.view_matrix());
+    device->shader.try_set("viewport", camera.viewport_matrix());
   }
 }
 
