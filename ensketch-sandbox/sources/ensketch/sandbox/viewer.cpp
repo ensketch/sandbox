@@ -72,7 +72,12 @@ void viewer::init() {
   }
 
   glEnable(GL_DEPTH_TEST);
-
+  glEnable(GL_MULTISAMPLE);
+  glEnable(GL_POINT_SMOOTH);
+  glEnable(GL_POINT_SPRITE);
+  glEnable(GL_BLEND);
+  glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+  glPointSize(10.0f);
   glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
 
   device = device_storage{};
@@ -233,6 +238,56 @@ void main() {
     return;
   }
 
+  const auto point_vs = opengl::vertex_shader{R"##(
+#version 460 core
+
+uniform mat4 projection;
+uniform mat4 view;
+
+layout (location = 0) in vec3 p;
+
+void main(){
+  gl_Position = projection * view * vec4(p, 1.0);
+}
+)##"};
+
+  const auto point_fs = opengl::fragment_shader{R"##(
+#version 460 core
+
+layout (location = 0) out vec4 frag_color;
+
+void main() {
+  float alpha = 1.0;
+  vec2 tmp = 2.0 * gl_PointCoord - 1.0;
+  float r = dot(tmp, tmp);
+  float delta = fwidth(0.5 * r);
+  alpha = 1.0 - smoothstep(1.0 - delta, 1.0 + delta, r);
+  frag_color = vec4(0.1, 0.5, 0.9, alpha);
+}
+)##"};
+
+  if (!point_vs) {
+    app().error(point_vs.info_log());
+    app().close_viewer();
+    return;
+  }
+
+  if (!point_fs) {
+    app().error(point_fs.info_log());
+    app().close_viewer();
+    return;
+  }
+
+  device->point_shader.attach(point_vs);
+  device->point_shader.attach(point_fs);
+  device->point_shader.link();
+
+  if (!device->point_shader.linked()) {
+    app().error(device->point_shader.info_log());
+    app().close_viewer();
+    return;
+  }
+
   device->va.bind();
   device->vertices.bind();
   device->faces.bind();
@@ -354,17 +409,32 @@ void viewer::update_view() {
     device->shader.try_set("projection", camera.projection_matrix());
     device->shader.try_set("view", camera.view_matrix());
     device->shader.try_set("viewport", camera.viewport_matrix());
+
+    device->point_shader.try_set("projection", camera.projection_matrix());
+    device->point_shader.try_set("view", camera.view_matrix());
+    device->point_shader.try_set("viewport", camera.viewport_matrix());
   }
 }
 
 void viewer::render() {
   glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
+  glDepthFunc(GL_LEQUAL);
+
   device->va.bind();
   device->faces.bind();
   device->shader.use();
   glDrawElements(GL_TRIANGLES, 3 * surface.faces.size(), GL_UNSIGNED_INT, 0);
   // glDrawArrays(GL_TRIANGLES, 0, 3);
+
+  glDepthFunc(GL_ALWAYS);
+
+  if (selected_vertex != polyhedral_surface::invalid) {
+    device->va.bind();
+    device->selected_vertices.bind();
+    device->point_shader.use();
+    glDrawElements(GL_POINTS, 1, GL_UNSIGNED_INT, 0);
+  }
 
   window.display();
 }
@@ -499,11 +569,29 @@ void viewer::select_vertex(float x, float y) noexcept {
   const auto& f = surface.faces[p.f];
   const auto w = real(1) - p.u - p.v;
 
-  // const auto position = surface.vertices[f[0]].position * w +
-  //                       surface.vertices[f[1]].position * u +
-  //                       surface.vertices[f[2]].position * v;
-  // return f[0];
-  app().info(format("Vertex ID = {}", f[0]));
+  const auto position = surface.vertices[f[0]].position * w +
+                        surface.vertices[f[1]].position * p.u +
+                        surface.vertices[f[2]].position * p.v;
+
+  const auto l0 = length(position - surface.vertices[f[0]].position);
+  const auto l1 = length(position - surface.vertices[f[1]].position);
+  const auto l2 = length(position - surface.vertices[f[2]].position);
+
+  if (l0 <= l1) {
+    if (l0 <= l2)
+      selected_vertex = f[0];
+    else
+      selected_vertex = f[2];
+  } else {
+    if (l1 <= l2)
+      selected_vertex = f[1];
+    else
+      selected_vertex = f[2];
+  }
+
+  app().info(format("Vertex ID = {}", selected_vertex));
+  if (device)
+    device->selected_vertices.allocate_and_initialize(selected_vertex);
 }
 
 }  // namespace ensketch::sandbox

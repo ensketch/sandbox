@@ -40,7 +40,7 @@ struct buffer_handle : object_handle {
   }
 
   void allocate_and_initialize(const void* data, size_t size) const noexcept {
-    glBufferData(buffer_type, size, data, GL_STATIC_DRAW);
+    glNamedBufferData(id(), size, data, GL_STATIC_DRAW);
   }
 
   void allocate_and_initialize(const auto* data, size_t size) const noexcept {

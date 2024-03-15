@@ -82,6 +82,9 @@ class viewer {
     opengl::vertex_array va{};
     opengl::vertex_buffer vertices{};
     opengl::element_buffer faces{};
+
+    opengl::shader_program point_shader{};
+    opengl::element_buffer selected_vertices{};
   };
   optional<device_storage> device{};
 
@@ -98,6 +101,8 @@ class viewer {
   float32 surface_process_time{};
   //
   float bounding_radius;
+
+  polyhedral_surface::vertex_id selected_vertex = polyhedral_surface::invalid;
 };
 
 }  // namespace ensketch::sandbox
