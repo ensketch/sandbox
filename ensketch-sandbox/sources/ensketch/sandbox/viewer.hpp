@@ -55,6 +55,9 @@ class viewer {
 
   void select_vertex(float x, float y) noexcept;
 
+  void record_mouse_curve() noexcept;
+  void reset_mouse_curve() noexcept;
+
  private:
   bool _running = false;
   sf::Window window{};
@@ -85,6 +88,10 @@ class viewer {
 
     opengl::shader_program point_shader{};
     opengl::element_buffer selected_vertices{};
+
+    opengl::shader_program mouse_curve_shader{};
+    opengl::vertex_array mouse_curve_va{};
+    opengl::vertex_buffer mouse_curve_data{};
   };
   optional<device_storage> device{};
 
@@ -103,6 +110,9 @@ class viewer {
   float bounding_radius;
 
   polyhedral_surface::vertex_id selected_vertex = polyhedral_surface::invalid;
+
+  vector<vec2> mouse_curve{};
+  bool mouse_curve_recording = false;
 };
 
 }  // namespace ensketch::sandbox

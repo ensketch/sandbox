@@ -302,6 +302,63 @@ void main() {
                         (void*)offsetof(polyhedral_surface::vertex, normal));
 
   surface_should_update = true;
+
+  const auto mouse_curve_vs = opengl::vertex_shader{R"##(
+#version 460 core
+
+uniform float screen_width;
+uniform float screen_height;
+
+layout (location = 0) in vec2 p;
+
+void main(){
+  const float x = 2.0 * p.x / screen_width - 1.0;
+  const float y = 1.0 - 2.0 * p.y / screen_height;
+  gl_Position = vec4(x, y, 0.0, 1.0);
+}
+)##"};
+
+  const auto mouse_curve_fs = opengl::fragment_shader{R"##(
+#version 460 core
+
+layout (location = 0) out vec4 frag_color;
+
+void main() {
+  float alpha = 1.0;
+  vec2 tmp = 2.0 * gl_PointCoord - 1.0;
+  float r = dot(tmp, tmp);
+  float delta = fwidth(0.5 * r);
+  alpha = 1.0 - smoothstep(1.0 - delta, 1.0 + delta, r);
+  frag_color = vec4(0.1, 0.5, 0.9, alpha);
+}
+)##"};
+
+  if (!mouse_curve_vs) {
+    app().error(mouse_curve_vs.info_log());
+    app().close_viewer();
+    return;
+  }
+
+  if (!mouse_curve_fs) {
+    app().error(mouse_curve_fs.info_log());
+    app().close_viewer();
+    return;
+  }
+
+  device->mouse_curve_shader.attach(mouse_curve_vs);
+  device->mouse_curve_shader.attach(mouse_curve_fs);
+  device->mouse_curve_shader.link();
+
+  if (!device->mouse_curve_shader.linked()) {
+    app().error(device->mouse_curve_shader.info_log());
+    app().close_viewer();
+    return;
+  }
+
+  device->mouse_curve_va.bind();
+  device->mouse_curve_data.bind();
+  glEnableVertexAttribArray(0);
+  glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, sizeof(vec2), (void*)0);
 }
 
 void viewer::free() {
@@ -348,6 +405,13 @@ void viewer::process_events() {
         case sf::Keyboard::Num2:
           set_z_as_up();
           break;
+        case sf::Keyboard::Space:
+          mouse_curve_recording = !mouse_curve_recording;
+          break;
+        case sf::Keyboard::M:
+          reset_mouse_curve();
+          mouse_curve_recording = false;
+          break;
       }
     }
   }
@@ -378,6 +442,8 @@ void viewer::update() {
 
     surface_should_update = false;
   }
+
+  if (mouse_curve_recording) record_mouse_curve();
 }
 
 void viewer::update_view() {
@@ -413,6 +479,11 @@ void viewer::update_view() {
     device->point_shader.try_set("projection", camera.projection_matrix());
     device->point_shader.try_set("view", camera.view_matrix());
     device->point_shader.try_set("viewport", camera.viewport_matrix());
+
+    device->mouse_curve_shader.set("screen_width",
+                                   float(camera.screen_width()));
+    device->mouse_curve_shader.set("screen_height",
+                                   float(camera.screen_height()));
   }
 }
 
@@ -434,6 +505,13 @@ void viewer::render() {
     device->selected_vertices.bind();
     device->point_shader.use();
     glDrawElements(GL_POINTS, 1, GL_UNSIGNED_INT, 0);
+  }
+
+  if (!mouse_curve.empty()) {
+    device->mouse_curve_va.bind();
+    device->mouse_curve_data.bind();
+    device->mouse_curve_shader.use();
+    glDrawArrays(GL_POINTS, 0, mouse_curve.size());
   }
 
   window.display();
@@ -592,6 +670,16 @@ void viewer::select_vertex(float x, float y) noexcept {
   app().info(format("Vertex ID = {}", selected_vertex));
   if (device)
     device->selected_vertices.allocate_and_initialize(selected_vertex);
+}
+
+void viewer::reset_mouse_curve() noexcept {
+  mouse_curve.clear();
+  // if (device) device->mouse_curve_data.clear();
+}
+
+void viewer::record_mouse_curve() noexcept {
+  mouse_curve.push_back(vec2{mouse_pos.x, mouse_pos.y});
+  if (device) device->mouse_curve_data.allocate_and_initialize(mouse_curve);
 }
 
 }  // namespace ensketch::sandbox
