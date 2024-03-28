@@ -53,10 +53,15 @@ class viewer {
     window.setVerticalSyncEnabled(value);
   }
 
+  auto mouse_to_vertex(float x, float y) noexcept
+      -> polyhedral_surface::vertex_id;
+
   void select_vertex(float x, float y) noexcept;
 
   void record_mouse_curve() noexcept;
   void reset_mouse_curve() noexcept;
+
+  void project_mouse_curve();
 
  private:
   bool _running = false;
@@ -89,6 +94,9 @@ class viewer {
     opengl::shader_program point_shader{};
     opengl::element_buffer selected_vertices{};
 
+    opengl::shader_program surface_vertex_curve_shader{};
+    opengl::element_buffer surface_vertex_curve_data{};
+
     opengl::shader_program mouse_curve_shader{};
     opengl::vertex_array mouse_curve_va{};
     opengl::vertex_buffer mouse_curve_data{};
@@ -113,6 +121,8 @@ class viewer {
 
   vector<vec2> mouse_curve{};
   bool mouse_curve_recording = false;
+
+  vector<polyhedral_surface::vertex_id> surface_vertex_curve{};
 };
 
 }  // namespace ensketch::sandbox

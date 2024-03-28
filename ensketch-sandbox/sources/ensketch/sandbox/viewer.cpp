@@ -303,6 +303,51 @@ void main() {
 
   surface_should_update = true;
 
+  const auto surface_vertex_curve_vs = opengl::vertex_shader{R"##(
+#version 460 core
+
+uniform mat4 projection;
+uniform mat4 view;
+
+layout (location = 0) in vec3 p;
+
+void main(){
+  gl_Position = projection * view * vec4(p, 1.0);
+}
+)##"};
+
+  const auto surface_vertex_curve_fs = opengl::fragment_shader{R"##(
+#version 460 core
+
+layout (location = 0) out vec4 frag_color;
+
+void main() {
+  frag_color = vec4(0.1, 0.5, 0.9, 1.0);
+}
+)##"};
+
+  if (!surface_vertex_curve_vs) {
+    app().error(surface_vertex_curve_vs.info_log());
+    app().close_viewer();
+    return;
+  }
+
+  if (!surface_vertex_curve_fs) {
+    app().error(surface_vertex_curve_fs.info_log());
+    app().close_viewer();
+    return;
+  }
+
+  device->surface_vertex_curve_shader.attach(surface_vertex_curve_vs);
+  device->surface_vertex_curve_shader.attach(surface_vertex_curve_fs);
+  device->surface_vertex_curve_shader.link();
+
+  if (!device->surface_vertex_curve_shader.linked()) {
+    app().error(device->surface_vertex_curve_shader.info_log());
+    app().close_viewer();
+    return;
+  }
+
   const auto mouse_curve_vs = opengl::vertex_shader{R"##(
 #version 460 core
 
@@ -412,6 +457,9 @@ void viewer::process_events() {
           reset_mouse_curve();
           mouse_curve_recording = false;
           break;
+        case sf::Keyboard::P:
+          project_mouse_curve();
+          break;
       }
     }
   }
@@ -480,6 +528,12 @@ void viewer::update_view() {
     device->point_shader.try_set("view", camera.view_matrix());
     device->point_shader.try_set("viewport", camera.viewport_matrix());
 
+    device->surface_vertex_curve_shader.try_set("projection",
+                                                camera.projection_matrix());
+    device->surface_vertex_curve_shader.try_set("view", camera.view_matrix());
+    device->surface_vertex_curve_shader.try_set("viewport",
+                                                camera.viewport_matrix());
+
     device->mouse_curve_shader.set("screen_width",
                                    float(camera.screen_width()));
     device->mouse_curve_shader.set("screen_height",
@@ -512,6 +566,14 @@ void viewer::render() {
     device->mouse_curve_data.bind();
     device->mouse_curve_shader.use();
     glDrawArrays(GL_POINTS, 0, mouse_curve.size());
+  }
+
+  if (!surface_vertex_curve.empty()) {
+    device->va.bind();
+    device->surface_vertex_curve_data.bind();
+    device->surface_vertex_curve_shader.use();
+    glDrawElements(GL_LINE_STRIP, surface_vertex_curve.size(), GL_UNSIGNED_INT,
+                   0);
   }
 
   window.display();
@@ -639,10 +701,11 @@ void viewer::print_surface_info() {
       surface.faces.size()));
 }
 
-void viewer::select_vertex(float x, float y) noexcept {
+auto viewer::mouse_to_vertex(float x, float y) noexcept
+    -> polyhedral_surface::vertex_id {
   const auto r = primary_ray(camera, x, y);
   const auto p = intersection(r, surface);
-  if (!p) return;
+  if (!p) return polyhedral_surface::invalid;
 
   const auto& f = surface.faces[p.f];
   const auto w = real(1) - p.u - p.v;
@@ -657,16 +720,22 @@ void viewer::select_vertex(float x, float y) noexcept {
 
   if (l0 <= l1) {
     if (l0 <= l2)
-      selected_vertex = f[0];
+      return f[0];
     else
-      selected_vertex = f[2];
+      return f[2];
   } else {
     if (l1 <= l2)
-      selected_vertex = f[1];
+      return f[1];
     else
-      selected_vertex = f[2];
+      return f[2];
   }
 
+  return polyhedral_surface::invalid;
+}
+
+void viewer::select_vertex(float x, float y) noexcept {
+  selected_vertex = mouse_to_vertex(x, y);
+  if (selected_vertex == polyhedral_surface::invalid) return;
   app().info(format("Vertex ID = {}", selected_vertex));
   if (device)
     device->selected_vertices.allocate_and_initialize(selected_vertex);
@@ -680,6 +749,20 @@ void viewer::reset_mouse_curve() noexcept {
 void viewer::record_mouse_curve() noexcept {
   mouse_curve.push_back(vec2{mouse_pos.x, mouse_pos.y});
   if (device) device->mouse_curve_data.allocate_and_initialize(mouse_curve);
+}
+
+void viewer::project_mouse_curve() {
+  surface_vertex_curve.clear();
+
+  for (auto& p : mouse_curve) {
+    const auto id = mouse_to_vertex(p.x, p.y);
+    if (id == polyhedral_surface::invalid) continue;
+    surface_vertex_curve.push_back(id);
+  }
+
+  if (device)
+    device->surface_vertex_curve_data.allocate_and_initialize(
+        surface_vertex_curve);
 }
 
 }  // namespace ensketch::sandbox
