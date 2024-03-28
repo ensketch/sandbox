@@ -627,7 +627,7 @@ void viewer::load_surface(const filesystem::path& path) {
     const auto load_start = clock::now();
 
     surface = polyhedral_surface_from(path);
-    // surface.generate_edges();
+    surface.generate_edges();
 
     const auto load_end = clock::now();
 
@@ -754,10 +754,37 @@ void viewer::record_mouse_curve() noexcept {
 void viewer::project_mouse_curve() {
   surface_vertex_curve.clear();
 
-  for (auto& p : mouse_curve) {
-    const auto id = mouse_to_vertex(p.x, p.y);
-    if (id == polyhedral_surface::invalid) continue;
-    surface_vertex_curve.push_back(id);
+  for (auto& m : mouse_curve) {
+    const auto x = mouse_to_vertex(m.x, m.y);
+
+    if (x == polyhedral_surface::invalid) continue;
+
+    if (surface_vertex_curve.empty()) {
+      surface_vertex_curve.push_back(x);
+      continue;
+    }
+
+    const auto p = surface_vertex_curve.back();
+    if (x == p) continue;
+
+    if (surface_vertex_curve.size() < 2) {
+      surface_vertex_curve.push_back(x);
+      continue;
+    }
+
+    const auto q = surface_vertex_curve[surface_vertex_curve.size() - 2];
+    if (x == q) {
+      surface_vertex_curve.pop_back();
+      continue;
+    }
+
+    if (surface.edges.contains({q, x}) || surface.edges.contains({x, q})) {
+      surface_vertex_curve.pop_back();
+      surface_vertex_curve.push_back(x);
+      continue;
+    }
+
+    surface_vertex_curve.push_back(x);
   }
 
   if (device)
