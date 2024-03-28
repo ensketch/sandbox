@@ -4,6 +4,10 @@
 #include <SFML/Graphics.hpp>
 //
 #include <ensketch/sandbox/polyhedral_surface.hpp>
+//
+#include <geometrycentral/surface/edge_length_geometry.h>
+#include <geometrycentral/surface/manifold_surface_mesh.h>
+#include <geometrycentral/surface/vertex_position_geometry.h>
 
 namespace ensketch::sandbox {
 
@@ -62,6 +66,10 @@ class viewer {
   void reset_mouse_curve() noexcept;
 
   void project_mouse_curve();
+
+  void compute_topology_and_geometry();
+
+  void close_surface_vertex_curve();
 
  private:
   bool _running = false;
@@ -123,6 +131,9 @@ class viewer {
   bool mouse_curve_recording = false;
 
   vector<polyhedral_surface::vertex_id> surface_vertex_curve{};
+
+  unique_ptr<geometrycentral::surface::ManifoldSurfaceMesh> mesh{};
+  unique_ptr<geometrycentral::surface::VertexPositionGeometry> geometry{};
 };
 
 }  // namespace ensketch::sandbox

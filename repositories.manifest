@@ -12,4 +12,8 @@ location: https://github.com/build2-packaging/chaiscript.git
 
 :
 role: prerequisite
+location: https://github.com/build2-packaging/geometry-central.git
+
+:
+role: prerequisite
 location: https://github.com/ensketch/xstd.git#main

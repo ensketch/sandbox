@@ -25,5 +25,6 @@ depends: libchaiscript ^6.1.0
 depends: libsfml-graphics ^2.5.1
 depends: glbinding ^3.0.0
 depends: glm ^0.9.9
+depends: libgeometrycentral
 
 depends: assimp ; System Dependency

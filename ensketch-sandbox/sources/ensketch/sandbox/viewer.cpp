@@ -6,6 +6,9 @@
 #include <ensketch/opengl/shader_object.hpp>
 #include <ensketch/opengl/shader_program.hpp>
 #include <ensketch/opengl/vertex_array.hpp>
+//
+#include <geometrycentral/surface/flip_geodesics.h>
+#include <geometrycentral/surface/halfedge_element_types.h>
 
 namespace ensketch::sandbox {
 
@@ -460,6 +463,9 @@ void viewer::process_events() {
         case sf::Keyboard::P:
           project_mouse_curve();
           break;
+        case sf::Keyboard::C:
+          close_surface_vertex_curve();
+          break;
       }
     }
   }
@@ -637,7 +643,7 @@ void viewer::load_surface(const filesystem::path& path) {
     // surface.update();
     fit_view();
     print_surface_info();
-    // compute_topology_and_geometry();
+    compute_topology_and_geometry();
 
     surface_should_update = true;
 
@@ -767,24 +773,124 @@ void viewer::project_mouse_curve() {
     const auto p = surface_vertex_curve.back();
     if (x == p) continue;
 
-    if (surface_vertex_curve.size() < 2) {
-      surface_vertex_curve.push_back(x);
+    {
+      using namespace geometrycentral;
+      using namespace surface;
+
+      // Get the shortest edge path by using
+      // Dijkstra's Algorithm by Geometry Central.
+      //
+      const auto network = FlipEdgeNetwork::constructFromDijkstraPath(
+          *mesh, *geometry, Vertex{mesh.get(), p}, Vertex{mesh.get(), x});
+      network->posGeom = geometry.get();
+      const auto paths = network->getPathPolyline();
+
+      // Check the path for consistency.
+      //
+      assert(paths.size() == 1);
+      const auto& path = paths[0];
+      assert(path.front().vertex.getIndex() == p);
+      assert(path.back().vertex.getIndex() == x);
+
+      // Store this path at the end of the current line.
+      //
+      for (size_t i = 1; i < path.size(); ++i)
+        surface_vertex_curve.push_back(path[i].vertex.getIndex());
+    }
+  }
+
+  decltype(surface_vertex_curve) vids{};
+
+  for (auto x : surface_vertex_curve) {
+    if (vids.empty()) {
+      vids.push_back(x);
       continue;
     }
 
-    const auto q = surface_vertex_curve[surface_vertex_curve.size() - 2];
+    const auto p = vids.back();
+    if (x == p) continue;
+
+    if (vids.size() < 2) {
+      vids.push_back(x);
+      continue;
+    }
+
+    const auto q = vids[vids.size() - 2];
     if (x == q) {
-      surface_vertex_curve.pop_back();
+      vids.pop_back();
       continue;
     }
 
     if (surface.edges.contains({q, x}) || surface.edges.contains({x, q})) {
-      surface_vertex_curve.pop_back();
-      surface_vertex_curve.push_back(x);
+      vids.pop_back();
+      vids.push_back(x);
       continue;
     }
 
-    surface_vertex_curve.push_back(x);
+    vids.push_back(x);
+  }
+
+  surface_vertex_curve.swap(vids);
+
+  if (device)
+    device->surface_vertex_curve_data.allocate_and_initialize(
+        surface_vertex_curve);
+}
+
+void viewer::compute_topology_and_geometry() {
+  using namespace geometrycentral;
+  using namespace surface;
+
+  // Generate polygon data for constructors.
+  //
+  vector<vector<size_t>> polygons(surface.faces.size());
+  for (size_t i = 0; const auto& f : surface.faces) {
+    polygons[i].resize(3);
+    for (size_t j = 0; j < 3; ++j) polygons[i][j] = f[j];
+    ++i;
+  }
+  //
+  mesh = make_unique<ManifoldSurfaceMesh>(polygons);
+
+  // Generate vertex data for constructors.
+  //
+  VertexData<Vector3> vertices(*mesh);
+  for (size_t i = 0; i < surface.vertices.size(); ++i) {
+    vertices[i].x = surface.vertices[i].position.x;
+    vertices[i].y = surface.vertices[i].position.y;
+    vertices[i].z = surface.vertices[i].position.z;
+  }
+  //
+  geometry = make_unique<VertexPositionGeometry>(*mesh, vertices);
+}
+
+void viewer::close_surface_vertex_curve() {
+  const auto p = surface_vertex_curve.back();
+  const auto q = surface_vertex_curve.front();
+
+  if (p != q) {
+    using namespace geometrycentral;
+    using namespace surface;
+
+    // Get the shortest edge path by using
+    // Dijkstra's Algorithm by Geometry Central.
+    //
+    const auto network = FlipEdgeNetwork::constructFromDijkstraPath(
+        *mesh, *geometry, Vertex{mesh.get(), p}, Vertex{mesh.get(), q});
+    network->posGeom = geometry.get();
+    const auto paths = network->getPathPolyline();
+
+    // Check the path for consistency.
+    //
+    assert(paths.size() == 1);
+    const auto& path = paths[0];
+    assert(path.front().vertex.getIndex() == p);
+    assert(path.back().vertex.getIndex() == q);
+
+    // Store this path at the end of the current line.
+    //
+    for (size_t i = 1; i < path.size(); ++i)
+      surface_vertex_curve.push_back(path[i].vertex.getIndex());
   }
 
   if (device)
