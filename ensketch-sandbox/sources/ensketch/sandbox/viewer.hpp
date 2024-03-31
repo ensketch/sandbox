@@ -69,6 +69,9 @@ class viewer {
 
   void compute_topology_and_geometry();
 
+  void regularize_open_surface_vertex_curve();
+  void regularize_closed_surface_vertex_curve();
+
   void close_surface_vertex_curve();
 
  private:

@@ -799,38 +799,7 @@ void viewer::project_mouse_curve() {
     }
   }
 
-  decltype(surface_vertex_curve) vids{};
-
-  for (auto x : surface_vertex_curve) {
-    if (vids.empty()) {
-      vids.push_back(x);
-      continue;
-    }
-
-    const auto p = vids.back();
-    if (x == p) continue;
-
-    if (vids.size() < 2) {
-      vids.push_back(x);
-      continue;
-    }
-
-    const auto q = vids[vids.size() - 2];
-    if (x == q) {
-      vids.pop_back();
-      continue;
-    }
-
-    if (surface.edges.contains({q, x}) || surface.edges.contains({x, q})) {
-      vids.pop_back();
-      vids.push_back(x);
-      continue;
-    }
-
-    vids.push_back(x);
-  }
-
-  surface_vertex_curve.swap(vids);
+  regularize_open_surface_vertex_curve();
 
   if (device)
     device->surface_vertex_curve_data.allocate_and_initialize(
@@ -864,6 +833,78 @@ void viewer::compute_topology_and_geometry() {
   geometry = make_unique<VertexPositionGeometry>(*mesh, vertices);
 }
 
+void viewer::regularize_open_surface_vertex_curve() {
+  // at this point, we assume that the surface vertex curve is valid,
+  // i.e. adjacent vertices are connected by an edge (they might be equal).
+  // This function may only reduce the amount of vertices.
+  // Because of that, it can be run in-place.
+
+  auto& curve = surface_vertex_curve;
+  // valid curves are not empty
+  // if (curve.empty()) return;
+
+  // first element will be kept the same
+  // no self-assignment necessary
+  size_t count = 1;
+
+  for (auto x : surface_vertex_curve) {
+    // count can never be zero
+    // if (count == 0) {
+    //   curve[count++] = x;  // push back
+    //   continue;
+    // }
+
+    const auto p = curve[count - 1];
+    if (x == p) continue;
+
+    if (count < 2) {
+      curve[count++] = x;  // push back
+      continue;
+    }
+
+    const auto q = curve[count - 2];
+    if (x == q) {
+      --count;  // pop back
+      continue;
+    }
+
+    if (surface.edges.contains({q, x}) || surface.edges.contains({x, q})) {
+      curve[count - 1] = x;  // remove previous and push back current
+      continue;
+    }
+
+    curve[count++] = x;  // push back
+  }
+
+  curve.resize(count);
+}
+
+void viewer::regularize_closed_surface_vertex_curve() {
+  // we assume the curve to be a valid closed vertex curve
+
+  auto& curve = surface_vertex_curve;
+  // if (curve.empty()) return;
+
+  regularize_open_surface_vertex_curve();
+  size_t count;
+
+  do {
+    count = curve.size();
+    if (count == 1) return;
+
+    const auto p = curve[count - 1];
+    const auto q = curve[count - 2];
+
+    for (auto i = count - 1; i >= 2; --i)  //
+      curve[i] = curve[i - 2];
+    curve[1] = p;
+    curve[0] = q;
+
+    regularize_open_surface_vertex_curve();
+
+  } while (curve.size() != count);
+}
+
 void viewer::close_surface_vertex_curve() {
   const auto p = surface_vertex_curve.back();
   const auto q = surface_vertex_curve.front();
@@ -892,6 +933,8 @@ void viewer::close_surface_vertex_curve() {
     for (size_t i = 1; i < path.size(); ++i)
       surface_vertex_curve.push_back(path[i].vertex.getIndex());
   }
+
+  regularize_closed_surface_vertex_curve();
 
   if (device)
     device->surface_vertex_curve_data.allocate_and_initialize(
