@@ -351,6 +351,11 @@ void main() {
     return;
   }
 
+  device->surface_mesh_curve_va.bind();
+  device->surface_mesh_curve_data.bind();
+  glEnableVertexAttribArray(0);
+  glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(vec3), (void*)0);
+
   const auto mouse_curve_vs = opengl::vertex_shader{R"##(
 #version 460 core
 
@@ -466,6 +471,12 @@ void viewer::process_events() {
         case sf::Keyboard::C:
           close_surface_vertex_curve();
           break;
+        case sf::Keyboard::R:
+          reset_surface_vertex_curve();
+          break;
+        case sf::Keyboard::G:
+          compute_geodesic();
+          break;
       }
     }
   }
@@ -476,6 +487,10 @@ void viewer::process_events() {
         shift({mouse_move.x, mouse_move.y});
       else
         turn({-0.01 * mouse_move.x, 0.01 * mouse_move.y});
+    }
+
+    if (sf::Mouse::isButtonPressed(sf::Mouse::Right)) {
+      mouse_append_surface_vertex_curve(mouse_pos.x, mouse_pos.y);
     }
   }
 }
@@ -580,6 +595,13 @@ void viewer::render() {
     device->surface_vertex_curve_shader.use();
     glDrawElements(GL_LINE_STRIP, surface_vertex_curve.size(), GL_UNSIGNED_INT,
                    0);
+  }
+
+  if (!surface_mesh_curve.empty()) {
+    device->surface_mesh_curve_va.bind();
+    device->surface_mesh_curve_data.bind();
+    device->surface_vertex_curve_shader.use();
+    glDrawArrays(GL_LINE_STRIP, 0, surface_mesh_curve.size());
   }
 
   window.display();
@@ -759,6 +781,7 @@ void viewer::record_mouse_curve() noexcept {
 
 void viewer::project_mouse_curve() {
   surface_vertex_curve.clear();
+  surface_vertex_curve_closed = false;
 
   for (auto& m : mouse_curve) {
     const auto x = mouse_to_vertex(m.x, m.y);
@@ -935,10 +958,146 @@ void viewer::close_surface_vertex_curve() {
   }
 
   regularize_closed_surface_vertex_curve();
+  surface_vertex_curve_closed = true;
 
   if (device)
     device->surface_vertex_curve_data.allocate_and_initialize(
         surface_vertex_curve);
+}
+
+void viewer::reset_surface_vertex_curve() {
+  surface_vertex_curve.clear();
+  if (device)
+    device->surface_vertex_curve_data.allocate_and_initialize(
+        surface_vertex_curve);
+}
+
+void viewer::mouse_append_surface_vertex_curve(float x, float y) {
+  const auto vid = mouse_to_vertex(x, y);
+  if (vid == polyhedral_surface::invalid) return;
+
+  if (surface_vertex_curve.empty()) {
+    surface_vertex_curve.push_back(vid);
+    return;
+  }
+
+  const auto p = surface_vertex_curve.back();
+  if (vid == p) return;
+
+  {
+    using namespace geometrycentral;
+    using namespace surface;
+
+    // Get the shortest edge path by using
+    // Dijkstra's Algorithm by Geometry Central.
+    //
+    const auto network = FlipEdgeNetwork::constructFromDijkstraPath(
+        *mesh, *geometry, Vertex{mesh.get(), p}, Vertex{mesh.get(), vid});
+    network->posGeom = geometry.get();
+    const auto paths = network->getPathPolyline();
+
+    // Check the path for consistency.
+    //
+    assert(paths.size() == 1);
+    const auto& path = paths[0];
+    assert(path.front().vertex.getIndex() == p);
+    assert(path.back().vertex.getIndex() == vid);
+
+    // Store this path at the end of the current line.
+    //
+    for (size_t i = 1; i < path.size(); ++i)
+      // surface_vertex_curve.push_back(path[i].vertex.getIndex());
+      regular_append_to_surface_vertex_curve(path[i].vertex.getIndex());
+  }
+}
+
+void viewer::regular_append_to_surface_vertex_curve(
+    polyhedral_surface::vertex_id vid) {
+  auto& curve = surface_vertex_curve;
+  auto count = curve.size();
+  surface_vertex_curve_closed = false;
+
+  // count can never be zero
+  if (count == 0) {
+    curve.push_back(vid);
+    return;
+  }
+
+  const auto p = curve[count - 1];
+  if (vid == p) return;
+
+  if (count < 2) {
+    curve.push_back(vid);
+    return;
+  }
+
+  const auto q = curve[count - 2];
+  if (vid == q) {
+    curve.pop_back();
+    return;
+  }
+
+  if (surface.edges.contains({q, vid}) || surface.edges.contains({vid, q})) {
+    curve[count - 1] = vid;  // remove previous and push back current
+    return;
+  }
+
+  curve.push_back(vid);  // push back
+
+  if (device)
+    device->surface_vertex_curve_data.allocate_and_initialize(
+        surface_vertex_curve);
+}
+
+void viewer::compute_geodesic() {
+  auto& curve = surface_vertex_curve;
+
+  if (curve.size() <= 2) return;
+
+  using namespace geometrycentral;
+  using namespace surface;
+
+  // Construct path of halfedges from vertex indices.
+  // We have to do this anyway as the surface point data
+  // structure does not provide correctly oriented halfedges.
+  //
+  vector<Halfedge> edges{};
+  for (size_t i = 1; i < curve.size(); ++i) {
+    Vertex p(mesh.get(), curve[i - 1]);
+    Vertex q(mesh.get(), curve[i]);
+
+    auto he = q.halfedge();
+    while (he.tipVertex() != p) he = he.nextOutgoingNeighbor();
+    // The halfedge must point to the previous point.
+    // Otherwise, edges do not count as path for FlipEdgeNetwork construction.
+    edges.push_back(he.twin());
+
+    // cout << line_vids[i - 1] << " -> " << line_vids[i] << '\t'
+    //      << he.tipVertex().getIndex() << "," << he.tailVertex().getIndex()
+    //      << endl;
+  }
+
+  if (surface_vertex_curve_closed) {
+    Vertex p(mesh.get(), curve.back());
+    Vertex q(mesh.get(), curve.front());
+    auto he = q.halfedge();
+    while (he.tipVertex() != p) he = he.nextOutgoingNeighbor();
+    edges.push_back(he.twin());
+  }
+
+  auto g = geometry.get();
+
+  FlipEdgeNetwork network(*mesh, *g, {edges});
+  network.iterativeShorten();
+  network.posGeom = g;
+  vector<Vector3> path = network.getPathPolyline3D().front();
+
+  surface_mesh_curve.clear();
+  for (const auto& v : path)
+    surface_mesh_curve.push_back(vec3{real(v.x), real(v.y), real(v.z)});
+
+  if (device)
+    device->surface_mesh_curve_data.allocate_and_initialize(surface_mesh_curve);
 }
 
 }  // namespace ensketch::sandbox

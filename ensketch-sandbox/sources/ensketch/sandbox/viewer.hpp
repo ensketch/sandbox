@@ -71,8 +71,13 @@ class viewer {
 
   void regularize_open_surface_vertex_curve();
   void regularize_closed_surface_vertex_curve();
-
   void close_surface_vertex_curve();
+  void mouse_append_surface_vertex_curve(float x, float y);
+  void regular_append_to_surface_vertex_curve(
+      polyhedral_surface::vertex_id vid);
+  void reset_surface_vertex_curve();
+
+  void compute_geodesic();
 
  private:
   bool _running = false;
@@ -108,6 +113,9 @@ class viewer {
     opengl::shader_program surface_vertex_curve_shader{};
     opengl::element_buffer surface_vertex_curve_data{};
 
+    opengl::vertex_array surface_mesh_curve_va{};
+    opengl::vertex_buffer surface_mesh_curve_data{};
+
     opengl::shader_program mouse_curve_shader{};
     opengl::vertex_array mouse_curve_va{};
     opengl::vertex_buffer mouse_curve_data{};
@@ -134,9 +142,12 @@ class viewer {
   bool mouse_curve_recording = false;
 
   vector<polyhedral_surface::vertex_id> surface_vertex_curve{};
+  bool surface_vertex_curve_closed = false;
 
   unique_ptr<geometrycentral::surface::ManifoldSurfaceMesh> mesh{};
   unique_ptr<geometrycentral::surface::VertexPositionGeometry> geometry{};
+
+  vector<vec3> surface_mesh_curve{};
 };
 
 }  // namespace ensketch::sandbox
