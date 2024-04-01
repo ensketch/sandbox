@@ -19,6 +19,10 @@ class viewer {
  public:
   static sf::ContextSettings opengl_context_settings;
 
+  struct mouse_position : vec2 {
+    using vec2::vec2;
+  };
+
   viewer() noexcept {}
 
   void open(int width, int height);
@@ -50,7 +54,7 @@ class viewer {
   void async_load_surface(const filesystem::path& path);
   void handle_surface_load_task();
 
-  void fit_view();
+  void fit_view_to_surface();
   void print_surface_info();
 
   bool running() const noexcept { return _running; }
@@ -59,44 +63,56 @@ class viewer {
     window.setVerticalSyncEnabled(value);
   }
 
-  auto mouse_to_vertex(float x, float y) noexcept
+  // Return the surface's vertex whose position
+  // best fits the current mouse position.
+  //
+  auto surface_vertex_from(const mouse_position&) noexcept
       -> polyhedral_surface::vertex_id;
 
-  void select_vertex(float x, float y) noexcept;
+  void select_surface_vertex_from_mouse(float x, float y) noexcept;
 
   void record_mouse_curve() noexcept;
   void reset_mouse_curve() noexcept;
 
-  void project_mouse_curve();
+  void project_mouse_curve_to_surface_vertex_curve();
 
-  void compute_topology_and_geometry();
+  void compute_surface_topology_and_geometry();
 
   void regularize_open_surface_vertex_curve();
   void regularize_closed_surface_vertex_curve();
-  void close_surface_vertex_curve();
+
+  void close_regular_surface_vertex_curve();
+
   void mouse_append_surface_vertex_curve(float x, float y);
   void regular_append_to_surface_vertex_curve(
       polyhedral_surface::vertex_id vid);
-  void reset_surface_vertex_curve();
 
+  void reset_surface_vertex_curve();
   void reset_surface_mesh_curve();
 
-  void compute_geodesic();
+  void compute_surface_geodesic();
 
   void compute_heat_data();
   void update_heat();
 
-  void compute_smooth_line();
+  void compute_smooth_surface_mesh_curve();
 
  private:
   bool _running = false;
+
+  // Window with OpenGL Context
+  //
   sf::Window window{};
 
+  // Stores updated mouse position in window coordinates.
+  //
   sf::Vector2i mouse_pos{};
 
   //
   bool view_should_update = false;
 
+  // 3D Coordinate System for Viewing
+  //
   // World Origin
   vec3 origin;
   // Basis Vectors of Right-Handed Coordinate System
@@ -108,64 +124,98 @@ class viewer {
   float altitude = 0;
   float azimuth = 0;
 
+  // Perspective camera
+  //
   opengl::camera camera{};
 
+  // OpenGL Storage on Device
+  // OpenGL Context must be created first.
+  // We use `optional` to postpone constructors
+  // and still allow for flat storage.
+  //
   struct device_storage {
+    // Surface Mesh
+    //
     opengl::shader_program shader{};
     opengl::vertex_array va{};
     opengl::vertex_buffer vertices{};
     opengl::element_buffer faces{};
 
+    // Selected Vertex on Surface Mesh
+    //
     opengl::shader_program point_shader{};
     opengl::element_buffer selected_vertices{};
 
+    // Surface Vertex Curve
+    //
     opengl::shader_program surface_vertex_curve_shader{};
     opengl::element_buffer surface_vertex_curve_data{};
 
+    // Surface Mesh Curve
+    //
     opengl::vertex_array surface_mesh_curve_va{};
     opengl::vertex_buffer surface_mesh_curve_data{};
 
+    // Mouse Curve on Screen
+    //
     opengl::shader_program mouse_curve_shader{};
     opengl::vertex_array mouse_curve_va{};
     opengl::vertex_buffer mouse_curve_data{};
   };
+  //
   optional<device_storage> device{};
 
+  // Surface Mesh on Host
+  //
   polyhedral_surface surface{};
-  // scene surface{};
+  //
   bool surface_should_update = false;
+  //
   // The loading of mesh data can take quite a long time
   // and may let the window manager think the program is frozen
   // if the data would be loaded by a blocking call.
   // Here, an asynchronous task is used
   // to get rid of this unresponsiveness.
+  //
   future<void> surface_load_task{};
   float32 surface_load_time{};
   float32 surface_process_time{};
   //
   float bounding_radius;
 
+  // Selected Vertex
+  //
   polyhedral_surface::vertex_id selected_vertex = polyhedral_surface::invalid;
 
+  // Mouse Curve and Recording
+  //
   vector<vec2> mouse_curve{};
   bool mouse_curve_recording = false;
 
+  // Surface Curves
+  //
   vector<polyhedral_surface::vertex_id> surface_vertex_curve{};
   bool surface_vertex_curve_closed = false;
-
+  //
+  // Geometry Central Data Structures for Geodesics
+  //
   unique_ptr<geometrycentral::surface::ManifoldSurfaceMesh> mesh{};
   unique_ptr<geometrycentral::surface::VertexPositionGeometry> geometry{};
-
+  //
+  // Surface Mesh Curve
+  // Also allowed to run over edges.
+  //
   vector<vec3> surface_mesh_curve{};
-
-  // Heat Geodsics from libigl
+  //
+  // Heat Geodesics from libigl
   //
   Eigen::MatrixXd surface_vertex_matrix;
   Eigen::MatrixXi surface_face_matrix;
   igl::HeatGeodesicsData<double> heat_data;
   Eigen::VectorXd heat;
-  // opengl::vertex_buffer device_heat{};
   vector<float> potential;
+  //
+  // Geodetic Smoothing
   //
   unique_ptr<geometrycentral::surface::EdgeLengthGeometry> lifted_geometry{};
   float avg_edge_length = 1.0f;

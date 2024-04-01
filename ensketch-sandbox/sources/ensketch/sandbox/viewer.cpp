@@ -566,10 +566,10 @@ void viewer::process_events() {
     else if (event.type == sf::Event::MouseButtonPressed) {
       switch (event.mouseButton.button) {
         case sf::Mouse::Middle:
-          // look_at(event.mouseButton.x, event.mouseButton.y);
+          look_at(event.mouseButton.x, event.mouseButton.y);
           break;
           // case sf::Mouse::Right:
-          //   select_vertex(mouse_pos.x, mouse_pos.y);
+          //   select_surface_vertex_from_mouse(mouse_pos.x, mouse_pos.y);
           //   break;
       }
     } else if (event.type == sf::Event::KeyPressed) {
@@ -591,28 +591,28 @@ void viewer::process_events() {
           mouse_curve_recording = false;
           break;
         case sf::Keyboard::P:
-          project_mouse_curve();
+          project_mouse_curve_to_surface_vertex_curve();
           break;
         case sf::Keyboard::C:
-          close_surface_vertex_curve();
+          close_regular_surface_vertex_curve();
           break;
         case sf::Keyboard::R:
           reset_surface_vertex_curve();
           reset_surface_mesh_curve();
           break;
         case sf::Keyboard::G:
-          compute_geodesic();
+          compute_surface_geodesic();
           break;
         case sf::Keyboard::S:
-          compute_smooth_line();
+          compute_smooth_surface_mesh_curve();
           break;
         case sf::Keyboard::Up:
           tolerance *= 1.1f;
-          compute_smooth_line();
+          compute_smooth_surface_mesh_curve();
           break;
         case sf::Keyboard::Down:
           tolerance *= 0.9f;
-          compute_smooth_line();
+          compute_smooth_surface_mesh_curve();
           break;
       }
     }
@@ -725,8 +725,10 @@ void viewer::render() {
     device->surface_vertex_curve_shader.use();
     device->surface_vertex_curve_shader.set("line_width", 3.5f);
     device->surface_vertex_curve_shader.set("line_color", vec3{0.5f});
-    glDrawElements(GL_LINE_STRIP, surface_vertex_curve.size(), GL_UNSIGNED_INT,
-                   0);
+    glDrawElements(
+        GL_LINE_STRIP,
+        surface_vertex_curve.size() + ((surface_vertex_curve_closed) ? 1 : 0),
+        GL_UNSIGNED_INT, 0);
   }
 
   if (!surface_mesh_curve.empty()) {
@@ -775,14 +777,14 @@ void viewer::zoom(float scale) {
   view_should_update = true;
 }
 
-// void viewer::look_at(float x, float y) {
-//   const auto r = camera.primary_ray(x, y);
-//   if (const auto p = intersection(r, surface)) {
-//     origin = r(p.t);
-//     radius = p.t;
-//     view_should_update = true;
-//   }
-// }
+void viewer::look_at(float x, float y) {
+  const auto r = primary_ray(camera, x, y);
+  if (const auto p = intersection(r, surface)) {
+    origin = r(p.t);
+    radius = p.t;
+    view_should_update = true;
+  }
+}
 
 void viewer::set_z_as_up() {
   right = {1, 0, 0};
@@ -811,9 +813,9 @@ void viewer::load_surface(const filesystem::path& path) {
     surface_load_time = duration(load_end - load_start).count();
 
     // surface.update();
-    fit_view();
+    fit_view_to_surface();
     print_surface_info();
-    compute_topology_and_geometry();
+    compute_surface_topology_and_geometry();
 
     surface_should_update = true;
 
@@ -855,7 +857,7 @@ void viewer::handle_surface_load_task() {
   surface_load_task = {};
 }
 
-void viewer::fit_view() {
+void viewer::fit_view_to_surface() {
   const auto box = aabb_from(surface);
   origin = box.origin();
   bounding_radius = box.radius();
@@ -877,9 +879,9 @@ void viewer::print_surface_info() {
       surface.faces.size()));
 }
 
-auto viewer::mouse_to_vertex(float x, float y) noexcept
+auto viewer::surface_vertex_from(const mouse_position& m) noexcept
     -> polyhedral_surface::vertex_id {
-  const auto r = primary_ray(camera, x, y);
+  const auto r = primary_ray(camera, m.x, m.y);
   const auto p = intersection(r, surface);
   if (!p) return polyhedral_surface::invalid;
 
@@ -909,8 +911,8 @@ auto viewer::mouse_to_vertex(float x, float y) noexcept
   return polyhedral_surface::invalid;
 }
 
-void viewer::select_vertex(float x, float y) noexcept {
-  selected_vertex = mouse_to_vertex(x, y);
+void viewer::select_surface_vertex_from_mouse(float x, float y) noexcept {
+  selected_vertex = surface_vertex_from(mouse_position{x, y});
   if (selected_vertex == polyhedral_surface::invalid) return;
   app().info(format("Vertex ID = {}", selected_vertex));
   if (device)
@@ -927,12 +929,12 @@ void viewer::record_mouse_curve() noexcept {
   if (device) device->mouse_curve_data.allocate_and_initialize(mouse_curve);
 }
 
-void viewer::project_mouse_curve() {
+void viewer::project_mouse_curve_to_surface_vertex_curve() {
   surface_vertex_curve.clear();
   surface_vertex_curve_closed = false;
 
   for (auto& m : mouse_curve) {
-    const auto x = mouse_to_vertex(m.x, m.y);
+    const auto x = surface_vertex_from(mouse_position{m.x, m.y});
 
     if (x == polyhedral_surface::invalid) continue;
 
@@ -977,7 +979,7 @@ void viewer::project_mouse_curve() {
         surface_vertex_curve);
 }
 
-void viewer::compute_topology_and_geometry() {
+void viewer::compute_surface_topology_and_geometry() {
   using namespace geometrycentral;
   using namespace surface;
 
@@ -1076,7 +1078,7 @@ void viewer::regularize_closed_surface_vertex_curve() {
   } while (curve.size() != count);
 }
 
-void viewer::close_surface_vertex_curve() {
+void viewer::close_regular_surface_vertex_curve() {
   const auto p = surface_vertex_curve.back();
   const auto q = surface_vertex_curve.front();
 
@@ -1106,11 +1108,14 @@ void viewer::close_surface_vertex_curve() {
   }
 
   regularize_closed_surface_vertex_curve();
+  surface_vertex_curve.push_back(surface_vertex_curve.front());
   surface_vertex_curve_closed = true;
 
   if (device)
     device->surface_vertex_curve_data.allocate_and_initialize(
         surface_vertex_curve);
+
+  surface_vertex_curve.pop_back();
 }
 
 void viewer::reset_surface_vertex_curve() {
@@ -1121,7 +1126,7 @@ void viewer::reset_surface_vertex_curve() {
 }
 
 void viewer::mouse_append_surface_vertex_curve(float x, float y) {
-  const auto vid = mouse_to_vertex(x, y);
+  const auto vid = surface_vertex_from(mouse_position{x, y});
   if (vid == polyhedral_surface::invalid) return;
 
   if (surface_vertex_curve.empty()) {
@@ -1203,7 +1208,7 @@ void viewer::reset_surface_mesh_curve() {
     device->surface_mesh_curve_data.allocate_and_initialize(surface_mesh_curve);
 }
 
-void viewer::compute_geodesic() {
+void viewer::compute_surface_geodesic() {
   auto& curve = surface_vertex_curve;
 
   if (curve.size() <= 2) return;
@@ -1284,7 +1289,7 @@ void viewer::compute_heat_data() {
 
   // cout << "avg edge length = " << e << endl;
 
-  auto t = pow(e, 2);
+  auto t = 10.0f * pow(e, 2);
   if (!igl::heat_geodesics_precompute(surface_vertex_matrix,
                                       surface_face_matrix, t, heat_data)) {
     cerr << "ERROR: Precomputation of heat data failed." << endl;
@@ -1355,7 +1360,7 @@ void viewer::update_heat() {
   lifted_geometry = make_unique<EdgeLengthGeometry>(*mesh, edge_lengths);
 }
 
-void viewer::compute_smooth_line() {
+void viewer::compute_smooth_surface_mesh_curve() {
   const auto& line_vids = surface_vertex_curve;
   // cout << "initial line vertices = " << line_vids.size() << endl;
 
@@ -1409,11 +1414,11 @@ void viewer::compute_smooth_line() {
   const auto geoesic_time = duration(end - heat_end).count();
   const auto time = duration(end - start).count();
 
-  cout << "time = " << time << " s\n"
-       << "heat time = " << heat_time << " s\n"
-       << "geodesic time = " << geoesic_time << " s\n"
-       << "tolerance = " << tolerance << '\n'
-       << endl;
+  // cout << "time = " << time << " s\n"
+  //      << "heat time = " << heat_time << " s\n"
+  //      << "geodesic time = " << geoesic_time << " s\n"
+  //      << "tolerance = " << tolerance << '\n'
+  //      << endl;
 
   surface_mesh_curve.clear();
   for (const auto& v : path)
