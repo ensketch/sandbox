@@ -79,6 +79,8 @@ class viewer {
       polyhedral_surface::vertex_id vid);
   void reset_surface_vertex_curve();
 
+  void reset_surface_mesh_curve();
+
   void compute_geodesic();
 
   void compute_heat_data();

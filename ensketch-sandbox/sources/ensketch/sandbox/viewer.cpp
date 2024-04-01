@@ -321,18 +321,140 @@ void main(){
 }
 )##"};
 
+  const auto surface_vertex_curve_gs = opengl::geometry_shader{R"##(
+#version 420 core
+
+uniform float line_width;
+
+uniform float screen_width;
+uniform float screen_height;
+
+layout (lines) in;
+layout (triangle_strip, max_vertices = 12) out;
+
+noperspective out vec2 uv;
+
+void main(){
+  // float width = 10.0;
+  float width = line_width;
+
+  vec4 pos1 = gl_in[0].gl_Position / gl_in[0].gl_Position.w;
+  vec4 pos2 = gl_in[1].gl_Position / gl_in[1].gl_Position.w;
+
+  vec2 p = vec2(0.5 * screen_width * pos1.x, 0.5 * screen_height * pos1.y);
+  vec2 q = vec2(0.5 * screen_width * pos2.x, 0.5 * screen_height * pos2.y);
+
+  vec2 d = normalize(q - p);
+  vec2 n = vec2(-d.y, d.x);
+  float delta = 0.5 * width;
+
+  vec2 t = vec2(0);
+
+  t = p - delta * n;
+  uv = vec2(0.0, -1.0);
+  gl_Position = vec4(2.0 * t.x / screen_width,
+                     2.0 * t.y / screen_height,
+                     pos1.z, 1.0);
+  EmitVertex();
+  t = p + delta * n;
+  uv = vec2(0.0, 1.0);
+  gl_Position = vec4(2.0 * t.x / screen_width,
+                     2.0 * t.y / screen_height,
+                     pos1.z, 1.0);
+  EmitVertex();
+  t = p - delta * n - delta * d;
+  uv = vec2(-1.0, -1.0);
+  gl_Position = vec4(2.0 * t.x / screen_width,
+                     2.0 * t.y / screen_height,
+                     pos1.z, 1.0);
+  EmitVertex();
+  t = p + delta * n - delta * d;
+  uv = vec2(-1.0, 1.0);
+  gl_Position = vec4(2.0 * t.x / screen_width,
+                     2.0 * t.y / screen_height,
+                     pos1.z, 1.0);
+  EmitVertex();
+  EndPrimitive();
+
+  t = q - delta * n;
+  uv = vec2(0.0, -1.0);
+  gl_Position = vec4(2.0 * t.x / screen_width,
+                     2.0 * t.y / screen_height,
+                     pos2.z, 1.0);
+  EmitVertex();
+  t = q + delta * n;
+  uv = vec2(0.0, 1.0);
+  gl_Position = vec4(2.0 * t.x / screen_width,
+                     2.0 * t.y / screen_height,
+                     pos2.z, 1.0);
+  EmitVertex();
+  t = q - delta * n + delta * d;
+  uv = vec2(1.0, -1.0);
+  gl_Position = vec4(2.0 * t.x / screen_width,
+                     2.0 * t.y / screen_height,
+                     pos2.z, 1.0);
+  EmitVertex();
+  t = q + delta * n + delta * d;
+  uv = vec2(1.0, 1.0);
+  gl_Position = vec4(2.0 * t.x / screen_width,
+                     2.0 * t.y / screen_height,
+                     pos2.z, 1.0);
+  EmitVertex();
+  EndPrimitive();
+
+
+  t = p - delta * n;
+  uv = vec2(0.0, -1.0);
+  gl_Position = vec4(2.0 * t.x / screen_width,
+                     2.0 * t.y / screen_height,
+                     pos1.z, 1.0);
+  EmitVertex();
+  t = q - delta * n;
+  uv = vec2(0.0, -1.0);
+  gl_Position = vec4(2.0 * t.x / screen_width,
+                     2.0 * t.y / screen_height,
+                     pos2.z, 1.0);
+  EmitVertex();
+  t = p + delta * n;
+  uv = vec2(0.0, 1.0);
+  gl_Position = vec4(2.0 * t.x / screen_width,
+                     2.0 * t.y / screen_height,
+                     pos1.z, 1.0);
+  EmitVertex();
+  t = q + delta * n;
+  uv = vec2(0.0, 1.0);
+  gl_Position = vec4(2.0 * t.x / screen_width,
+                     2.0 * t.y / screen_height,
+                     pos2.z, 1.0);
+  EmitVertex();
+  EndPrimitive();
+}
+)##"};
+
   const auto surface_vertex_curve_fs = opengl::fragment_shader{R"##(
 #version 460 core
+
+uniform vec3 line_color;
+
+noperspective in vec2 uv;
 
 layout (location = 0) out vec4 frag_color;
 
 void main() {
-  frag_color = vec4(0.1, 0.5, 0.9, 1.0);
+  // frag_color = vec4(0.1, 0.5, 0.9, 1.0);
+  if (length(uv) >= 1.0) discard;
+  frag_color = vec4(line_color, 1.0);
 }
 )##"};
 
   if (!surface_vertex_curve_vs) {
     app().error(surface_vertex_curve_vs.info_log());
+    app().close_viewer();
+    return;
+  }
+
+  if (!surface_vertex_curve_gs) {
+    app().error(surface_vertex_curve_gs.info_log());
     app().close_viewer();
     return;
   }
@@ -344,6 +466,7 @@ void main() {
   }
 
   device->surface_vertex_curve_shader.attach(surface_vertex_curve_vs);
+  device->surface_vertex_curve_shader.attach(surface_vertex_curve_gs);
   device->surface_vertex_curve_shader.attach(surface_vertex_curve_fs);
   device->surface_vertex_curve_shader.link();
 
@@ -445,9 +568,9 @@ void viewer::process_events() {
         case sf::Mouse::Middle:
           // look_at(event.mouseButton.x, event.mouseButton.y);
           break;
-        case sf::Mouse::Right:
-          select_vertex(mouse_pos.x, mouse_pos.y);
-          break;
+          // case sf::Mouse::Right:
+          //   select_vertex(mouse_pos.x, mouse_pos.y);
+          //   break;
       }
     } else if (event.type == sf::Event::KeyPressed) {
       switch (event.key.code) {
@@ -475,6 +598,7 @@ void viewer::process_events() {
           break;
         case sf::Keyboard::R:
           reset_surface_vertex_curve();
+          reset_surface_mesh_curve();
           break;
         case sf::Keyboard::G:
           compute_geodesic();
@@ -570,6 +694,11 @@ void viewer::update_view() {
     device->surface_vertex_curve_shader.try_set("viewport",
                                                 camera.viewport_matrix());
 
+    device->surface_vertex_curve_shader.set("screen_width",
+                                            float(camera.screen_width()));
+    device->surface_vertex_curve_shader.set("screen_height",
+                                            float(camera.screen_height()));
+
     device->mouse_curve_shader.set("screen_width",
                                    float(camera.screen_width()));
     device->mouse_curve_shader.set("screen_height",
@@ -590,6 +719,25 @@ void viewer::render() {
 
   glDepthFunc(GL_ALWAYS);
 
+  if (!surface_vertex_curve.empty()) {
+    device->va.bind();
+    device->surface_vertex_curve_data.bind();
+    device->surface_vertex_curve_shader.use();
+    device->surface_vertex_curve_shader.set("line_width", 3.5f);
+    device->surface_vertex_curve_shader.set("line_color", vec3{0.5f});
+    glDrawElements(GL_LINE_STRIP, surface_vertex_curve.size(), GL_UNSIGNED_INT,
+                   0);
+  }
+
+  if (!surface_mesh_curve.empty()) {
+    device->surface_mesh_curve_va.bind();
+    device->surface_mesh_curve_data.bind();
+    device->surface_vertex_curve_shader.use();
+    device->surface_vertex_curve_shader.set("line_width", 3.5f);
+    device->surface_vertex_curve_shader.set("line_color", vec3{0.1, 0.5, 0.9});
+    glDrawArrays(GL_LINE_STRIP, 0, surface_mesh_curve.size());
+  }
+
   if (selected_vertex != polyhedral_surface::invalid) {
     device->va.bind();
     device->selected_vertices.bind();
@@ -602,21 +750,6 @@ void viewer::render() {
     device->mouse_curve_data.bind();
     device->mouse_curve_shader.use();
     glDrawArrays(GL_POINTS, 0, mouse_curve.size());
-  }
-
-  if (!surface_vertex_curve.empty()) {
-    device->va.bind();
-    device->surface_vertex_curve_data.bind();
-    device->surface_vertex_curve_shader.use();
-    glDrawElements(GL_LINE_STRIP, surface_vertex_curve.size(), GL_UNSIGNED_INT,
-                   0);
-  }
-
-  if (!surface_mesh_curve.empty()) {
-    device->surface_mesh_curve_va.bind();
-    device->surface_mesh_curve_data.bind();
-    device->surface_vertex_curve_shader.use();
-    glDrawArrays(GL_LINE_STRIP, 0, surface_mesh_curve.size());
   }
 
   window.display();
@@ -1062,6 +1195,12 @@ void viewer::regular_append_to_surface_vertex_curve(
   if (device)
     device->surface_vertex_curve_data.allocate_and_initialize(
         surface_vertex_curve);
+}
+
+void viewer::reset_surface_mesh_curve() {
+  surface_mesh_curve.clear();
+  if (device)
+    device->surface_mesh_curve_data.allocate_and_initialize(surface_mesh_curve);
 }
 
 void viewer::compute_geodesic() {
