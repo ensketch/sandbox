@@ -9,6 +9,8 @@
 //
 #include <geometrycentral/surface/flip_geodesics.h>
 #include <geometrycentral/surface/halfedge_element_types.h>
+//
+#include <igl/avg_edge_length.h>
 
 namespace ensketch::sandbox {
 
@@ -64,15 +66,15 @@ void viewer::close() {
 void viewer::init() {
   glbinding::initialize(sf::Context::getFunction);
 
-  int flags;
-  glGetIntegerv(GL_CONTEXT_FLAGS, &flags);
-  if (flags & static_cast<int>(GL_CONTEXT_FLAG_DEBUG_BIT)) {
-    glEnable(GL_DEBUG_OUTPUT);
-    glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS);
-    glDebugMessageCallback(glDebugOutput, nullptr);
-    glDebugMessageControl(GL_DONT_CARE, GL_DONT_CARE, GL_DONT_CARE, 0, nullptr,
-                          GL_TRUE);
-  }
+  // int flags;
+  // glGetIntegerv(GL_CONTEXT_FLAGS, &flags);
+  // if (flags & static_cast<int>(GL_CONTEXT_FLAG_DEBUG_BIT)) {
+  //   glEnable(GL_DEBUG_OUTPUT);
+  //   glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS);
+  //   glDebugMessageCallback(glDebugOutput, nullptr);
+  //   glDebugMessageControl(GL_DONT_CARE, GL_DONT_CARE, GL_DONT_CARE, 0, nullptr,
+  //                         GL_TRUE);
+  // }
 
   glEnable(GL_DEPTH_TEST);
   glEnable(GL_MULTISAMPLE);
@@ -477,6 +479,17 @@ void viewer::process_events() {
         case sf::Keyboard::G:
           compute_geodesic();
           break;
+        case sf::Keyboard::S:
+          compute_smooth_line();
+          break;
+        case sf::Keyboard::Up:
+          tolerance *= 1.1f;
+          compute_smooth_line();
+          break;
+        case sf::Keyboard::Down:
+          tolerance *= 0.9f;
+          compute_smooth_line();
+          break;
       }
     }
   }
@@ -505,6 +518,8 @@ void viewer::update() {
 
   if (surface_should_update) {
     // surface.update();
+
+    compute_heat_data();
 
     device->vertices.allocate_and_initialize(surface.vertices);
     device->faces.allocate_and_initialize(surface.faces);
@@ -1088,7 +1103,7 @@ void viewer::compute_geodesic() {
   auto g = geometry.get();
 
   FlipEdgeNetwork network(*mesh, *g, {edges});
-  network.iterativeShorten();
+  network.iterativeShorten(INVALID_IND, 0.2);
   network.posGeom = g;
   vector<Vector3> path = network.getPathPolyline3D().front();
 
@@ -1098,6 +1113,176 @@ void viewer::compute_geodesic() {
 
   if (device)
     device->surface_mesh_curve_data.allocate_and_initialize(surface_mesh_curve);
+}
+
+void viewer::compute_heat_data() {
+  // Construct vertex matrix.
+  //
+  surface_vertex_matrix.resize(surface.vertices.size(), 3);
+  for (size_t i = 0; i < surface.vertices.size(); ++i)
+    for (size_t j = 0; j < 3; ++j)
+      surface_vertex_matrix(i, j) = surface.vertices[i].position[j];
+
+  // Construct face matrix.
+  //
+  surface_face_matrix.resize(surface.faces.size(), 3);
+  for (size_t i = 0; i < surface.faces.size(); ++i)
+    for (size_t j = 0; j < 3; ++j)
+      surface_face_matrix(i, j) = surface.faces[i][j];
+
+  // Construct heat data.
+  //
+  const auto e =
+      igl::avg_edge_length(surface_vertex_matrix, surface_face_matrix);
+
+  avg_edge_length = e;
+
+  // tolerance = 1 / (2 * e);
+  // bound = e;
+  // cout << "tolerance = " << tolerance << '\n'
+  //      << "bound = " << bound << '\n'
+  //      << endl;
+
+  // cout << "avg edge length = " << e << endl;
+
+  auto t = pow(e, 2);
+  if (!igl::heat_geodesics_precompute(surface_vertex_matrix,
+                                      surface_face_matrix, t, heat_data)) {
+    cerr << "ERROR: Precomputation of heat data failed." << endl;
+    exit(1);
+  }
+
+  potential.assign(surface.vertices.size(), 0);
+  // device_heat.allocate_and_initialize(potential);
+}
+
+void viewer::update_heat() {
+  const auto& line_vids = surface_vertex_curve;
+
+  heat = Eigen::VectorXd::Zero(surface_vertex_matrix.rows());
+  Eigen::VectorXi gamma(line_vids.size());
+  for (size_t i = 0; i < line_vids.size(); ++i) gamma[i] = line_vids[i];
+
+  igl::heat_geodesics_solve(heat_data, gamma, heat);
+
+  // device_heat.allocate_and_initialize(potential);
+
+  potential.assign(heat.size(), 0);
+  for (size_t i = 0; i < potential.size(); ++i) potential[i] = heat[i];
+
+  double max_distance = 0;
+  for (size_t i = 0; i < heat.size(); ++i)
+    max_distance = std::max(max_distance, heat[i]);
+
+  // cout << "max distance = " << max_distance << endl;
+  for (auto i : line_vids) potential[i] = 0;
+
+  const auto modifier = [this](auto x) {
+    const auto f = [](auto x) { return (x <= 1e-4) ? 0 : exp(-1 / x); };
+    // const auto bump = [f](auto x) {
+    //   return f(x) / (f(x) + f(1 - x));
+    // };
+    const auto square = [](auto x) { return x * x; };
+    // const auto t = tolerance * x - bound;
+    return x * x * f(x);
+    // return tolerance * (x + sin(tolerance * x));
+    // return (x <= 1e-4)
+    //            ? 0
+    //            : tolerance * tolerance * x * x * exp(-1.0f / tolerance / x);
+    // return tolerance * sqrt(x);
+    // return (tolerance * x) * (tolerance * x);
+  };
+
+  for (size_t i = 0; i < potential.size(); ++i)
+    potential[i] =
+        modifier(tolerance * (potential[i] / surface.mean_edge_length[i]));
+
+  // device_heat.allocate_and_initialize(potential);
+
+  // Generate vertex data for constructors.
+  //
+  using namespace geometrycentral;
+  using namespace surface;
+  EdgeData<double> edge_lengths(*mesh);
+  for (auto e : mesh->edges()) {
+    const auto vid1 = e.halfedge().tipVertex().getIndex();
+    const auto vid2 = e.halfedge().tailVertex().getIndex();
+    const auto squared = [](auto x) { return x * x; };
+    edge_lengths[e] = sqrt(length2(surface.vertices[vid1].position -
+                                   surface.vertices[vid2].position) +
+                           squared(potential[vid1] - potential[vid2]));
+  }
+  //
+  lifted_geometry = make_unique<EdgeLengthGeometry>(*mesh, edge_lengths);
+}
+
+void viewer::compute_smooth_line() {
+  const auto& line_vids = surface_vertex_curve;
+  // cout << "initial line vertices = " << line_vids.size() << endl;
+
+  if (line_vids.size() <= 1) return;
+
+  const auto start = clock::now();
+
+  update_heat();
+
+  const auto heat_end = clock::now();
+
+  using namespace geometrycentral;
+  using namespace surface;
+
+  // Construct path of halfedges from vertex indices.
+  // We have to do this anyway as the surface point data
+  // structure does not provide correctly oriented halfedges.
+  //
+  vector<Halfedge> edges{};
+  for (size_t i = 1; i < line_vids.size(); ++i) {
+    Vertex p(mesh.get(), line_vids[i - 1]);
+    Vertex q(mesh.get(), line_vids[i]);
+
+    auto he = q.halfedge();
+    while (he.tipVertex() != p) he = he.nextOutgoingNeighbor();
+    // The halfedge must point to the previous point.
+    // Otherwise, edges do not count as path for FlipEdgeNetwork construction.
+    edges.push_back(he.twin());
+
+    // cout << line_vids[i - 1] << " -> " << line_vids[i] << '\t'
+    //      << he.tipVertex().getIndex() << "," << he.tailVertex().getIndex()
+    //      << endl;
+  }
+  if (surface_vertex_curve_closed) {
+    Vertex p(mesh.get(), line_vids.back());
+    Vertex q(mesh.get(), line_vids.front());
+    auto he = q.halfedge();
+    while (he.tipVertex() != p) he = he.nextOutgoingNeighbor();
+    edges.push_back(he.twin());
+  }
+
+  FlipEdgeNetwork network(*mesh, *lifted_geometry, {edges});
+  // network.iterativeShorten(INVALID_IND, 0.0);
+  network.iterativeShorten();
+  network.posGeom = geometry.get();
+  vector<Vector3> path = network.getPathPolyline3D().front();
+
+  const auto end = clock::now();
+
+  const auto heat_time = duration(heat_end - start).count();
+  const auto geoesic_time = duration(end - heat_end).count();
+  const auto time = duration(end - start).count();
+
+  cout << "time = " << time << " s\n"
+       << "heat time = " << heat_time << " s\n"
+       << "geodesic time = " << geoesic_time << " s\n"
+       << "tolerance = " << tolerance << '\n'
+       << endl;
+
+  surface_mesh_curve.clear();
+  for (const auto& v : path)
+    surface_mesh_curve.push_back(vec3{real(v.x), real(v.y), real(v.z)});
+  if (device)
+    device->surface_mesh_curve_data.allocate_and_initialize(surface_mesh_curve);
+
+  // cout << "smoothed line vertices = " << device_line.vertices.size() << endl;
 }
 
 }  // namespace ensketch::sandbox

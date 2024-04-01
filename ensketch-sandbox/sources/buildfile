@@ -4,6 +4,8 @@ import libs += libensketch-xstd%lib{ensketch-xstd}
 import libs += libreplxx%lib{replxx}
 import libs += libchaiscript%lib{chaiscript}
 import libs += libgeometrycentral%lib{geometrycentral}
+import libs += libigl-core%liba{igl-core}
+
 
 import libs += glbinding%lib{glbinding}
 import libs += glm%lib{glm}

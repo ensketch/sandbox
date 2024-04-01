@@ -8,6 +8,8 @@
 #include <geometrycentral/surface/edge_length_geometry.h>
 #include <geometrycentral/surface/manifold_surface_mesh.h>
 #include <geometrycentral/surface/vertex_position_geometry.h>
+//
+#include <igl/heat_geodesics.h>
 
 namespace ensketch::sandbox {
 
@@ -79,6 +81,11 @@ class viewer {
 
   void compute_geodesic();
 
+  void compute_heat_data();
+  void update_heat();
+
+  void compute_smooth_line();
+
  private:
   bool _running = false;
   sf::Window window{};
@@ -148,6 +155,21 @@ class viewer {
   unique_ptr<geometrycentral::surface::VertexPositionGeometry> geometry{};
 
   vector<vec3> surface_mesh_curve{};
+
+  // Heat Geodsics from libigl
+  //
+  Eigen::MatrixXd surface_vertex_matrix;
+  Eigen::MatrixXi surface_face_matrix;
+  igl::HeatGeodesicsData<double> heat_data;
+  Eigen::VectorXd heat;
+  // opengl::vertex_buffer device_heat{};
+  vector<float> potential;
+  //
+  unique_ptr<geometrycentral::surface::EdgeLengthGeometry> lifted_geometry{};
+  float avg_edge_length = 1.0f;
+  float tolerance = 2.0f;
+  float bound = 1.0f;
+  float transition = 1.0f;
 };
 
 }  // namespace ensketch::sandbox
