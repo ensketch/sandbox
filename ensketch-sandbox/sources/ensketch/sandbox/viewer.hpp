@@ -3,6 +3,7 @@
 //
 #include <SFML/Graphics.hpp>
 //
+#include <ensketch/sandbox/hyper_surface_smoothing.hpp>
 #include <ensketch/sandbox/polyhedral_surface.hpp>
 //
 #include <geometrycentral/surface/edge_length_geometry.h>

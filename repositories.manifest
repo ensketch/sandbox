@@ -17,3 +17,7 @@ location: https://github.com/build2-packaging/geometry-central.git
 :
 role: prerequisite
 location: https://github.com/ensketch/xstd.git#main
+
+:
+role: prerequisite
+location: https://github.com/lyrahgames/build2-cinolib.git#main

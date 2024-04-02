@@ -28,4 +28,6 @@ depends: glm ^0.9.9
 depends: libgeometrycentral
 depends: libigl-core ^2.5.0-
 
+depends: libcino
+
 depends: assimp ; System Dependency

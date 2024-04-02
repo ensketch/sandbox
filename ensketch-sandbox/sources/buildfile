@@ -13,6 +13,8 @@ import libs += libsfml-graphics%lib{sfml-graphics}
 
 import libs += assimp%lib{assimp}
 
+import libs += libcino%lib{cino}
+
 exe{ensketch-sandbox}: {hxx ixx txx cxx}{**} $libs
 {
   test = true
