@@ -79,4 +79,119 @@ auto polyhedral_surface_from(const filesystem::path& path)
 ///
 auto aabb_from(const polyhedral_surface& surface) noexcept -> aabb3;
 
+inline auto bipartition_from(const polyhedral_surface& surface,
+                             const vector<polyhedral_surface::vertex_id>& curve,
+                             bool closed = true) -> vector<float> {
+  const auto throw_error = [] {
+    throw runtime_error(
+        "Failed to generate surface bi-partition from given surface vertex "
+        "curve.");
+  };
+
+  if (curve.empty()) throw_error();
+
+  // constexpr uint8 r_flag = 0b01;
+  // constexpr uint8 l_flag = 0b10;
+  // constexpr uint8 both = 0b11;
+
+  vector<float> face_mask{};
+  face_mask.assign(surface.faces.size(), 0.0f);
+
+  vector<polyhedral_surface::face_id> face_stack{};
+
+  for (size_t i = 1; i < curve.size(); ++i) {
+    const auto p = curve[i - 1];
+    const auto q = curve[i];
+
+    const auto fr = surface.edges.at(polyhedral_surface::edge{p, q}).face;
+    face_mask[fr] = 1.0f;
+    // face_mask[fr] |= r_flag;
+
+    const auto fl = surface.edges.at(polyhedral_surface::edge{q, p}).face;
+    face_mask[fl] = -1.0f;
+    // face_mask[fl] |= l_flag;
+
+    // if (face_mask[fr] == both) throw_error();
+    // if (face_mask[fl] == both) throw_error();
+
+    // face_stack.push_back(fr);
+    // face_stack.push_back(fl);
+  }
+  if (closed) {
+    const auto p = curve.back();
+    const auto q = curve.front();
+
+    const auto fr = surface.edges.at(polyhedral_surface::edge{p, q}).face;
+    face_mask[fr] = 1.0f;
+    // face_mask[fr] |= r_flag;
+
+    const auto fl = surface.edges.at(polyhedral_surface::edge{q, p}).face;
+    face_mask[fl] = -1.0f;
+    // face_mask[fl] |= l_flag;
+
+    // if (face_mask[fr] == both) throw_error();
+    // if (face_mask[fl] == both) throw_error();
+
+    // face_stack.push_back(fr);
+    // face_stack.push_back(fl);
+  }
+
+  for (size_t i = 0; i < surface.faces.size(); ++i) {
+    if (face_mask[i]) continue;
+    const auto face = surface.faces[i];
+    const auto n0 =
+        surface.edges.at(polyhedral_surface::edge{face[1], face[0]}).face;
+    const auto n1 =
+        surface.edges.at(polyhedral_surface::edge{face[2], face[1]}).face;
+    const auto n2 =
+        surface.edges.at(polyhedral_surface::edge{face[0], face[2]}).face;
+    if ((face_mask[n0] != 0.0f) || (face_mask[n1] != 0.0f) ||
+        (face_mask[n2] != 0.0f))
+      face_stack.push_back(i);
+  }
+
+  while (!face_stack.empty()) {
+    const auto f = face_stack.back();
+    face_stack.pop_back();
+
+    const auto face = surface.faces[f];
+    const auto n0 =
+        surface.edges.at(polyhedral_surface::edge{face[1], face[0]}).face;
+    const auto n1 =
+        surface.edges.at(polyhedral_surface::edge{face[2], face[1]}).face;
+    const auto n2 =
+        surface.edges.at(polyhedral_surface::edge{face[0], face[2]}).face;
+
+    bool left = false;
+    bool right = false;
+
+    if (face_mask[n0] == 0.0f)
+      face_stack.push_back(n0);
+    else {
+      if (face_mask[n0] < 0.0f) left = true;
+      if (face_mask[n0] > 0.0f) right = true;
+    }
+
+    if (face_mask[n1] == 0.0f)
+      face_stack.push_back(n1);
+    else {
+      if (face_mask[n1] < 0.0f) left = true;
+      if (face_mask[n1] > 0.0f) right = true;
+    }
+
+    if (face_mask[n2] == 0.0f)
+      face_stack.push_back(n2);
+    else {
+      if (face_mask[n2] < 0.0f) left = true;
+      if (face_mask[n2] > 0.0f) right = true;
+    }
+
+    if (left && right) throw_error();
+    if (left) face_mask[f] = -1.0f;
+    if (right) face_mask[f] = 1.0f;
+  }
+
+  return face_mask;
+}
+
 }  // namespace ensketch::sandbox

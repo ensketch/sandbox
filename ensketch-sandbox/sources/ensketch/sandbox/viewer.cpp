@@ -1,6 +1,7 @@
 #include <ensketch/sandbox/viewer.hpp>
 //
 #include <ensketch/sandbox/application.hpp>
+#include <ensketch/sandbox/hyper_surface_smoothing.hpp>
 #include <ensketch/sandbox/ray_tracer.hpp>
 //
 #include <ensketch/opengl/shader_object.hpp>
@@ -94,14 +95,17 @@ uniform mat4 view;
 
 layout (location = 0) in vec3 p;
 layout (location = 1) in vec3 n;
+layout (location = 2) in float f;
 
 out vec3 position;
 out vec3 normal;
+out float field;
 
 void main() {
   gl_Position = projection * view * vec4(p, 1.0);
   position = vec3(view * vec4(p, 1.0));
   normal = vec3(view * vec4(n, 0.0));
+  field = f;
 }
 )##"};
 
@@ -116,11 +120,13 @@ layout (triangle_strip, max_vertices = 3) out;
 
 in vec3 position[];
 in vec3 normal[];
+in float field[];
 
 out vec3 pos;
 out vec3 nor;
 out vec3 vnor;
 noperspective out vec3 edge_distance;
+out float phi;
 
 void main(){
   vec3 p0 = vec3(viewport * (gl_in[0].gl_Position /
@@ -143,10 +149,13 @@ void main(){
   float hb = abs(c * sin(alpha));
   float hc = abs(b * sin(alpha));
 
+  gl_PrimitiveID = gl_PrimitiveIDIn;
+
   edge_distance = vec3(ha, 0, 0);
   nor = n;
   vnor = normal[0];
   pos = position[0];
+  phi = field[0];
   gl_Position = gl_in[0].gl_Position;
   EmitVertex();
 
@@ -154,6 +163,7 @@ void main(){
   nor = n;
   vnor = normal[1];
   pos = position[1];
+  phi = field[1];
   gl_Position = gl_in[1].gl_Position;
   EmitVertex();
 
@@ -161,6 +171,7 @@ void main(){
   nor = n;
   vnor = normal[2];
   pos = position[2];
+  phi = field[2];
   gl_Position = gl_in[2].gl_Position;
   EmitVertex();
 
@@ -177,8 +188,90 @@ in vec3 pos;
 in vec3 nor;
 in vec3 vnor;
 noperspective in vec3 edge_distance;
+in float phi;
 
 layout (location = 0) out vec4 frag_color;
+
+layout (std430, binding = 0) readonly buffer ssbo {
+  float label[];
+};
+
+float colormap_h(float x) {
+  if (x < 0.1151580585723306) {
+    return (2.25507158009032E+00 * x - 1.17973110308697E+00) * x + 7.72551618145170E-01; // H1
+  } else if (x < (9.89643667779019E-01 - 6.61604251019618E-01) / (2.80520737708568E+00 - 1.40111938331467E+00)) {
+    return -2.80520737708568E+00 * x + 9.89643667779019E-01; // H2
+  } else if (x < (6.61604251019618E-01 - 4.13849520734156E-01) / (1.40111938331467E+00 - 7.00489176507247E-01)) {
+    return -1.40111938331467E+00 * x + 6.61604251019618E-01; // H3
+  } else if (x < (4.13849520734156E-01 - 2.48319927251200E-01) / (7.00489176507247E-01 - 3.49965224045823E-01)) {
+    return -7.00489176507247E-01 * x + 4.13849520734156E-01; // H4
+  } else {
+    return -3.49965224045823E-01 * x + 2.48319927251200E-01; // H5
+  }
+}
+
+float colormap_v(float x) {
+  float v = 1.0;
+  if (x < 0.5) {
+    v = clamp(2.10566088679245E+00 * x + 7.56360684411500E-01, 0.0, 1.0);
+  } else {
+    v = clamp(-1.70132918347782E+00 * x + 2.20637371757606E+00, 0.0, 1.0);
+  }
+  float period = 4.0 / 105.0;
+  float len = 3.0 / 252.0;
+  float t = mod(x + 7.0 / 252.0, period);
+  if (0.0 <= t && t < len) {
+    if (x < 0.12) {
+      v = (1.87862631683169E+00 * x + 6.81498517051705E-01);
+    } else if (x < 0.73) {
+      v -= 26.0 / 252.0;
+    } else {
+      v = -1.53215278202992E+00 * x + 1.98649818445446E+00;
+    }
+  }
+  return v;
+}
+
+// H1 - H2 = 0
+// => [x=-0.8359672286003642,x=0.1151580585723306]
+
+vec4 colormap_hsv2rgb(float h, float s, float v) {
+  float r = v;
+  float g = v;
+  float b = v;
+  if (s > 0.0) {
+    h *= 6.0;
+    int i = int(h);
+    float f = h - float(i);
+    if (i == 1) {
+      r *= 1.0 - s * f;
+      b *= 1.0 - s;
+    } else if (i == 2) {
+      r *= 1.0 - s;
+      b *= 1.0 - s * (1.0 - f);
+    } else if (i == 3) {
+      r *= 1.0 - s;
+      g *= 1.0 - s * f;
+    } else if (i == 4) {
+      r *= 1.0 - s * (1.0 - f);
+      g *= 1.0 - s;
+    } else if (i == 5) {
+      g *= 1.0 - s;
+      b *= 1.0 - s * f;
+    } else {
+      g *= 1.0 - s * (1.0 - f);
+      b *= 1.0 - s;
+    }
+  }
+  return vec4(r, g, b, 1.0);
+}
+
+vec4 colormap(float x) {
+  float h = colormap_h(clamp(x, 0.0, 1.0));
+  float s = 1.0;
+  float v = colormap_v(clamp(x, 0.0, 1.0));
+  return colormap_hsv2rgb(h, s, v);
+}
 
 void main() {
   // vec3 n = normalize(normal);
@@ -205,12 +298,17 @@ void main() {
   // float light = 0.2 + 0.75 * pow(s, 0.2);
   vec4 light_color = vec4(vec3(light), alpha);
   // Mix both color values.
-  // vec4 color = vec4(vec3(colormap(hea)), alpha);
-  //light_color = mix(color, light_color, 0.0);
+  float transition = 0.5;
+  light_color = mix(vec4(0.0, 0.0, 0.0, 1.0), light_color, smoothstep(abs(phi), 2.0 - transition, 2.0 + transition));
   // if (!lighting) light_color = color;
   frag_color = mix(line_color, light_color, mix_value);
   // if (mix_value > 0.9) discard;
   //   frag_color = (1 - mix_value) * line_color;
+
+  // if (label[gl_PrimitiveID] > 0)
+  //   frag_color = mix(frag_color, vec4(1.0, 0.0, 0.0, 1.0), 0.5);
+  // else if (label[gl_PrimitiveID] < 0)
+  //   frag_color = mix(frag_color, vec4(0.0, 0.0, 1.0, 1.0), 0.5);
 }
 )##"};
 
@@ -305,6 +403,13 @@ void main() {
   glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE,
                         sizeof(polyhedral_surface::vertex),
                         (void*)offsetof(polyhedral_surface::vertex, normal));
+
+  device->scalar_field.bind();
+  glEnableVertexAttribArray(2);
+  glVertexAttribPointer(2, 1, GL_FLOAT, GL_FALSE, sizeof(float), (void*)0);
+
+  glBindBuffer(GL_SHADER_STORAGE_BUFFER, device->ssbo.id());
+  glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, device->ssbo.id());
 
   surface_should_update = true;
 
@@ -599,6 +704,8 @@ void viewer::process_events() {
         case sf::Keyboard::R:
           reset_surface_vertex_curve();
           reset_surface_mesh_curve();
+          reset_surface_bipartition();
+          reset_surface_scalar_field();
           break;
         case sf::Keyboard::G:
           compute_surface_geodesic();
@@ -613,6 +720,12 @@ void viewer::process_events() {
         case sf::Keyboard::Down:
           tolerance *= 0.9f;
           compute_smooth_surface_mesh_curve();
+          break;
+        case sf::Keyboard::B:
+          compute_surface_bipartition_from_surface_vertex_curve();
+          break;
+        case sf::Keyboard::H:
+          compute_hyper_surface_smoothing();
           break;
       }
     }
@@ -647,6 +760,12 @@ void viewer::update() {
 
     device->vertices.allocate_and_initialize(surface.vertices);
     device->faces.allocate_and_initialize(surface.faces);
+
+    vector<float> tmp{};
+    tmp.assign(surface.faces.size(), 0.0f);
+    device->ssbo.allocate_and_initialize(tmp);
+    tmp.assign(surface.vertices.size(), 0.0f);
+    device->scalar_field.allocate_and_initialize(tmp);
 
     surface_should_update = false;
   }
@@ -1342,6 +1461,7 @@ void viewer::update_heat() {
         modifier(tolerance * (potential[i] / surface.mean_edge_length[i]));
 
   // device_heat.allocate_and_initialize(potential);
+  // device->scalar_field.allocate_and_initialize(potential);
 
   // Generate vertex data for constructors.
   //
@@ -1427,6 +1547,67 @@ void viewer::compute_smooth_surface_mesh_curve() {
     device->surface_mesh_curve_data.allocate_and_initialize(surface_mesh_curve);
 
   // cout << "smoothed line vertices = " << device_line.vertices.size() << endl;
+}
+
+void viewer::compute_surface_bipartition_from_surface_vertex_curve() {
+  try {
+    const auto face_mask = bipartition_from(surface, surface_vertex_curve,
+                                            surface_vertex_curve_closed);
+    device->ssbo.allocate_and_initialize(face_mask);
+    app().info("Surface bi-partition computed.");
+  } catch (runtime_error& e) {
+    app().error(e.what());
+    reset_surface_bipartition();
+  }
+}
+
+void viewer::reset_surface_bipartition() {
+  vector<float> tmp{};
+  tmp.assign(surface.faces.size(), 0.0f);
+  device->ssbo.allocate_and_initialize(tmp);
+}
+
+void viewer::reset_surface_scalar_field() {
+  vector<float> tmp{};
+  tmp.assign(surface.vertices.size(), 0.0f);
+  device->scalar_field.allocate_and_initialize(tmp);
+}
+
+void viewer::compute_hyper_surface_smoothing() try {
+  vector<double> coords(3 * surface.vertices.size());
+  for (size_t i = 0; i < surface.vertices.size(); ++i) {
+    const auto& v = surface.vertices[i].position;
+    coords[3 * i + 0] = v.x;
+    coords[3 * i + 1] = v.y;
+    coords[3 * i + 2] = v.z;
+  }
+
+  vector<uint> elements(3 * surface.faces.size());
+  for (size_t i = 0; i < surface.faces.size(); ++i) {
+    const auto& f = surface.faces[i];
+    elements[3 * i + 0] = f[0];
+    elements[3 * i + 1] = f[1];
+    elements[3 * i + 2] = f[2];
+  }
+
+  Trimesh<> m(coords, elements);
+
+  // ScalarField sf();
+  // assert(sf.size() == m.num_polys());
+  const auto face_mask = bipartition_from(surface, surface_vertex_curve,
+                                          surface_vertex_curve_closed);
+
+  for (uint pid = 0; pid < m.num_polys(); ++pid)
+    m.poly_data(pid).label = (face_mask[pid] < 0.0f) ? 0 : 1;
+
+  ScalarField res = smooth_discrete_hyper_surface(m);
+  vector<float> field(res.size());
+  for (size_t i = 0; i < res.size(); ++i) field[i] = res[i];
+
+  device->scalar_field.allocate_and_initialize(field);
+
+} catch (runtime_error& e) {
+  app().error(e.what());
 }
 
 }  // namespace ensketch::sandbox

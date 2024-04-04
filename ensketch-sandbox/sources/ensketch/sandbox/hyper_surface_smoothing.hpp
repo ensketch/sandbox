@@ -40,21 +40,21 @@ ScalarField smooth_discrete_hyper_surface(Mesh& m) {
   ScalarField u = heat_flow(m, heat_sources, t, COTANGENT);
   u.normalize_in_01();
   u.copy_to_mesh(m);
-  u.serialize("u.txt");
-  std::cout << "heat flow computed (see file u.txt)" << std::endl;
+  // u.serialize("u.txt");
+  // std::cout << "heat flow computed (see file u.txt)" << std::endl;
 
   VectorField field = VectorField(m.num_polys());
   field = gradient_matrix(m) * u;
-  field.serialize("u_gradient.txt");
-  std::cout << "u gradient computed (see file u_gradient.txt)" << std::endl;
+  // field.serialize("u_gradient.txt");
+  // std::cout << "u gradient computed (see file u_gradient.txt)" << std::endl;
 
   // STEP TWO: flip the gradient of one of the regions
   for (uint pid = 0; pid < m.num_polys(); ++pid) {
     if (m.poly_data(pid).label == 1) field.set(pid, -field.vec_at(pid));
   }
   field.normalize();
-  field.serialize("X.txt");
-  std::cout << "X field generated (see file X.txt)" << std::endl;
+  // field.serialize("X.txt");
+  // std::cout << "X field generated (see file X.txt)" << std::endl;
 
   // STEP THREE: smooth the resulting gradient
   for (uint i = 0; i < SMOOTHING_PASSES; ++i)
@@ -68,15 +68,15 @@ ScalarField smooth_discrete_hyper_surface(Mesh& m) {
       field.set(pid, avg_g);
     }
   field.normalize();
-  field.serialize("X_prime.txt");
-  std::cout << "smoothed X field generated (see file X_prime.txt)" << std::endl;
+  // field.serialize("X_prime.txt");
+  // std::cout << "smoothed X field generated (see file X_prime.txt)" << std::endl;
 
   // STEP FOUR: find the scalar field corresponding to it
   int type = UNIFORM;
   if (m.mesh_type() == TRIMESH || m.mesh_type() == TETMESH)
     type = COTANGENT;  // use cotangent weights for tris and tets
   std::vector<Eigen::Triplet<double>> entries =
-      laplacian_matrix_entries(m, type);
+      laplacian_matrix_entries(m, type, 1);
   Eigen::VectorXd div = gradient_matrix(m).transpose() * field;
   Eigen::SparseMatrix<double> L(m.num_verts() + heat_sources.size(),
                                 m.num_verts());
@@ -91,7 +91,7 @@ ScalarField smooth_discrete_hyper_surface(Mesh& m) {
   ScalarField phi;
   solve_least_squares(-L, rhs, phi);
   phi.copy_to_mesh(m);
-  phi.normalize_in_01();
+  // phi.normalize_in_01();
   return phi;
 }
 

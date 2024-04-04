@@ -3,7 +3,6 @@
 //
 #include <SFML/Graphics.hpp>
 //
-#include <ensketch/sandbox/hyper_surface_smoothing.hpp>
 #include <ensketch/sandbox/polyhedral_surface.hpp>
 //
 #include <geometrycentral/surface/edge_length_geometry.h>
@@ -98,6 +97,12 @@ class viewer {
 
   void compute_smooth_surface_mesh_curve();
 
+  void compute_surface_bipartition_from_surface_vertex_curve();
+  void reset_surface_bipartition();
+
+  void reset_surface_scalar_field();
+  void compute_hyper_surface_smoothing();
+
  private:
   bool _running = false;
 
@@ -141,6 +146,9 @@ class viewer {
     opengl::vertex_array va{};
     opengl::vertex_buffer vertices{};
     opengl::element_buffer faces{};
+
+    opengl::shader_storage_buffer ssbo{};
+    opengl::vertex_buffer scalar_field{};
 
     // Selected Vertex on Surface Mesh
     //
