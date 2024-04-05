@@ -1620,7 +1620,7 @@ void viewer::compute_heat_data() {
 
   // cout << "avg edge length = " << e << endl;
 
-  auto t = 10.0f * pow(e, 2);
+  auto t = /*10.0f **/ pow(e, 2);
   if (!igl::heat_geodesics_precompute(surface_vertex_matrix,
                                       surface_face_matrix, t, heat_data)) {
     cerr << "ERROR: Precomputation of heat data failed." << endl;
@@ -1738,7 +1738,56 @@ void viewer::compute_smooth_surface_mesh_curve() {
   // network.iterativeShorten(INVALID_IND, 0.0);
   network.iterativeShorten();
   network.posGeom = geometry.get();
-  vector<Vector3> path = network.getPathPolyline3D().front();
+
+  // vector<Vector3> path = network.getPathPolyline3D().front();
+  auto paths = network.getPathPolyline();
+  auto& path = paths.front();
+  auto positions = network.pathTo3D(paths).front();
+
+  // Laplacian Relaxation
+  //
+  {
+    const auto relax = [&](const auto& l, const auto& r, const auto& v1,
+                           const auto& v2, float t0) {
+      const auto p = r - v1;
+      const auto q = l - v1;
+      const auto v = v2 - v1;
+      const auto vl = norm(v);
+      const auto ivl = 1 / vl;
+      const auto vn = ivl * v;
+
+      const auto py = dot(p, vn);
+      const auto qy = dot(q, vn);
+      const auto px = -norm(p - py * vn);
+      const auto qx = norm(q - qy * vn);
+
+      const auto t = (py * qx - qy * px) / (qx - px) * ivl;
+      const auto relaxation = 0.5f;
+      return std::clamp((1 - relaxation) * t0 + relaxation * t, 0.0, 1.0);
+    };
+
+    const auto apply_relax = [&](size_t i, size_t j, size_t k) {
+      if (path[j].type != SurfacePointType::Edge) return;
+      const auto p = positions[i];
+      const auto q = positions[k];
+
+      auto& edge = path[j].edge;
+      const auto v1 = network.posGeom->vertexPositions[edge.firstVertex()];
+      const auto v2 = network.posGeom->vertexPositions[edge.secondVertex()];
+      const auto t0 = path[j].tEdge;
+
+      path[j].tEdge = relax(p, q, v1, v2, t0);
+    };
+
+    for (size_t it = 0; it < 3; ++it) {
+      for (size_t i = 1; i < path.size() - 1; ++i) apply_relax(i - 1, i, i + 1);
+      if (surface_vertex_curve_closed) {
+        apply_relax(path.size() - 2, path.size() - 1, 0);
+        apply_relax(path.size() - 1, 0, 1);
+      }
+      positions = network.pathTo3D(paths).front();
+    }
+  }
 
   const auto end = clock::now();
 
@@ -1753,7 +1802,7 @@ void viewer::compute_smooth_surface_mesh_curve() {
   //      << endl;
 
   surface_mesh_curve.clear();
-  for (const auto& v : path)
+  for (const auto& v : positions)
     surface_mesh_curve.push_back(vec3{real(v.x), real(v.y), real(v.z)});
   if (device)
     device->surface_mesh_curve_data.allocate_and_initialize(surface_mesh_curve);
