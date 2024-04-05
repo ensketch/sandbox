@@ -299,7 +299,7 @@ void main() {
   vec4 light_color = vec4(vec3(light), alpha);
   // Mix both color values.
   float transition = 0.5;
-  light_color = mix(vec4(0.0, 0.0, 0.0, 1.0), light_color, smoothstep(abs(phi), 2.0 - transition, 2.0 + transition));
+  // light_color = mix(vec4(0.0, 0.0, 0.0, 1.0), light_color, smoothstep(phi, -10.0, 10.0));
   // if (!lighting) light_color = color;
   frag_color = mix(line_color, light_color, mix_value);
   // if (mix_value > 0.9) discard;
@@ -337,6 +337,206 @@ void main() {
 
   if (!device->shader.linked()) {
     app().error(device->shader.info_log());
+    app().close_viewer();
+    return;
+  }
+
+  const auto level_set_vs = opengl::vertex_shader{R"##(
+#version 460 core
+
+uniform mat4 projection;
+uniform mat4 view;
+
+layout (location = 0) in vec3 p;
+layout (location = 2) in float f;
+
+out float field;
+
+void main() {
+  gl_Position = projection * view * vec4(p, 1.0);
+  field = f;
+}
+)##"};
+
+  const auto level_set_gs = opengl::geometry_shader{R"##(
+#version 460 core
+
+uniform float line_width;
+
+uniform float screen_width;
+uniform float screen_height;
+
+layout (triangles) in;
+layout (triangle_strip, max_vertices = 12) out;
+
+in float field[];
+
+noperspective out vec2 uv;
+
+void main(){
+  vec4 a = gl_in[0].gl_Position;
+  vec4 b = gl_in[1].gl_Position;
+  vec4 c = gl_in[2].gl_Position;
+
+  float sa = field[0];
+  float sb = field[1];
+  float sc = field[2];
+
+  vec4 position[2];
+  int index = 0;
+
+  if (sa * sb < 0) {
+    position[index++] = ((abs(sb) * a + abs(sa) * b) / (abs(sa) + abs(sb)));
+    // EmitVertex();
+  }
+  if (sa * sc < 0) {
+    position[index++] = ((abs(sc) * a + abs(sa) * c) / (abs(sa) + abs(sc)));
+    // EmitVertex();
+  }
+  if (sb * sc < 0) {
+    position[index++] = ((abs(sc) * b + abs(sb) * c) / (abs(sb) + abs(sc)));
+    // EmitVertex();
+  }
+  // EndPrimitive();
+
+  if (index < 2) return;
+
+  float width = line_width;
+
+  vec4 pos1 = position[0] / position[0].w;
+  vec4 pos2 = position[1] / position[1].w;
+
+  vec2 p = vec2(0.5 * screen_width * pos1.x, 0.5 * screen_height * pos1.y);
+  vec2 q = vec2(0.5 * screen_width * pos2.x, 0.5 * screen_height * pos2.y);
+
+  vec2 d = normalize(q - p);
+  vec2 n = vec2(-d.y, d.x);
+  float delta = 0.5 * width;
+
+  vec2 t = vec2(0);
+
+  t = p - delta * n;
+  uv = vec2(0.0, -1.0);
+  gl_Position = vec4(2.0 * t.x / screen_width,
+                     2.0 * t.y / screen_height,
+                     pos1.z, 1.0);
+  EmitVertex();
+  t = p + delta * n;
+  uv = vec2(0.0, 1.0);
+  gl_Position = vec4(2.0 * t.x / screen_width,
+                     2.0 * t.y / screen_height,
+                     pos1.z, 1.0);
+  EmitVertex();
+  t = p - delta * n - delta * d;
+  uv = vec2(-1.0, -1.0);
+  gl_Position = vec4(2.0 * t.x / screen_width,
+                     2.0 * t.y / screen_height,
+                     pos1.z, 1.0);
+  EmitVertex();
+  t = p + delta * n - delta * d;
+  uv = vec2(-1.0, 1.0);
+  gl_Position = vec4(2.0 * t.x / screen_width,
+                     2.0 * t.y / screen_height,
+                     pos1.z, 1.0);
+  EmitVertex();
+  EndPrimitive();
+
+  t = q - delta * n;
+  uv = vec2(0.0, -1.0);
+  gl_Position = vec4(2.0 * t.x / screen_width,
+                     2.0 * t.y / screen_height,
+                     pos2.z, 1.0);
+  EmitVertex();
+  t = q + delta * n;
+  uv = vec2(0.0, 1.0);
+  gl_Position = vec4(2.0 * t.x / screen_width,
+                     2.0 * t.y / screen_height,
+                     pos2.z, 1.0);
+  EmitVertex();
+  t = q - delta * n + delta * d;
+  uv = vec2(1.0, -1.0);
+  gl_Position = vec4(2.0 * t.x / screen_width,
+                     2.0 * t.y / screen_height,
+                     pos2.z, 1.0);
+  EmitVertex();
+  t = q + delta * n + delta * d;
+  uv = vec2(1.0, 1.0);
+  gl_Position = vec4(2.0 * t.x / screen_width,
+                     2.0 * t.y / screen_height,
+                     pos2.z, 1.0);
+  EmitVertex();
+  EndPrimitive();
+
+
+  t = p - delta * n;
+  uv = vec2(0.0, -1.0);
+  gl_Position = vec4(2.0 * t.x / screen_width,
+                     2.0 * t.y / screen_height,
+                     pos1.z, 1.0);
+  EmitVertex();
+  t = q - delta * n;
+  uv = vec2(0.0, -1.0);
+  gl_Position = vec4(2.0 * t.x / screen_width,
+                     2.0 * t.y / screen_height,
+                     pos2.z, 1.0);
+  EmitVertex();
+  t = p + delta * n;
+  uv = vec2(0.0, 1.0);
+  gl_Position = vec4(2.0 * t.x / screen_width,
+                     2.0 * t.y / screen_height,
+                     pos1.z, 1.0);
+  EmitVertex();
+  t = q + delta * n;
+  uv = vec2(0.0, 1.0);
+  gl_Position = vec4(2.0 * t.x / screen_width,
+                     2.0 * t.y / screen_height,
+                     pos2.z, 1.0);
+  EmitVertex();
+  EndPrimitive();
+}
+)##"};
+
+  const auto level_set_fs = opengl::fragment_shader{R"##(
+#version 460 core
+
+uniform vec3 line_color;
+
+noperspective in vec2 uv;
+
+layout (location = 0) out vec4 frag_color;
+
+void main() {
+  // frag_color = vec4(0.1, 0.5, 0.9, 1.0);
+  if (length(uv) >= 1.0) discard;
+    frag_color = vec4(line_color, 1.0);
+}
+)##"};
+
+  if (!level_set_vs) {
+    app().error(level_set_vs.info_log());
+    app().close_viewer();
+    return;
+  }
+
+  if (!level_set_gs) {
+    app().error(level_set_gs.info_log());
+    app().close_viewer();
+    return;
+  }
+
+  if (!level_set_fs) {
+    app().error(level_set_fs.info_log());
+    app().close_viewer();
+    return;
+  }
+
+  device->level_set_shader.attach(level_set_vs);
+  device->level_set_shader.attach(level_set_gs);
+  device->level_set_shader.attach(level_set_fs);
+  device->level_set_shader.link();
+
+  if (!device->level_set_shader.linked()) {
+    app().error(device->level_set_shader.info_log());
     app().close_viewer();
     return;
   }
@@ -803,6 +1003,13 @@ void viewer::update_view() {
     device->shader.try_set("view", camera.view_matrix());
     device->shader.try_set("viewport", camera.viewport_matrix());
 
+    device->level_set_shader.try_set("projection", camera.projection_matrix());
+    device->level_set_shader.try_set("view", camera.view_matrix());
+    device->level_set_shader.try_set("viewport", camera.viewport_matrix());
+    device->level_set_shader.set("screen_width", float(camera.screen_width()));
+    device->level_set_shader.set("screen_height",
+                                 float(camera.screen_height()));
+
     device->point_shader.try_set("projection", camera.projection_matrix());
     device->point_shader.try_set("view", camera.view_matrix());
     device->point_shader.try_set("viewport", camera.viewport_matrix());
@@ -837,6 +1044,11 @@ void viewer::render() {
   // glDrawArrays(GL_TRIANGLES, 0, 3);
 
   glDepthFunc(GL_ALWAYS);
+
+  device->level_set_shader.set("line_width", 3.5f);
+  device->level_set_shader.set("line_color", vec3{0.9, 0.5, 0.1});
+  device->level_set_shader.use();
+  glDrawElements(GL_TRIANGLES, 3 * surface.faces.size(), GL_UNSIGNED_INT, 0);
 
   if (!surface_vertex_curve.empty()) {
     device->va.bind();

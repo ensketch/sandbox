@@ -150,6 +150,8 @@ class viewer {
     opengl::shader_storage_buffer ssbo{};
     opengl::vertex_buffer scalar_field{};
 
+    opengl::shader_program level_set_shader{};
+
     // Selected Vertex on Surface Mesh
     //
     opengl::shader_program point_shader{};
