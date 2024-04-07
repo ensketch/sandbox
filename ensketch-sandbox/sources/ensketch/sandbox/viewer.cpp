@@ -985,9 +985,9 @@ void viewer::update_view() {
   p += origin;
   camera.move(p).look_at(origin, up);
 
-  // camera.set_near_and_far(std::max(1e-3f * radius, radius - bounding_radius),
-  //                         radius + bounding_radius);
-  camera.set_near_and_far(0.1f, 100.0f);
+  camera.set_near_and_far(std::max(1e-3f * radius, radius - bounding_radius),
+                          radius + bounding_radius);
+  // camera.set_near_and_far(0.1f, 100.0f);
 
   // shaders.apply([this](opengl::shader_program_handle shader) {
   //   shader.bind()
@@ -1659,7 +1659,9 @@ void viewer::update_heat() {
     // };
     const auto square = [](auto x) { return x * x; };
     // const auto t = tolerance * x - bound;
-    return x * x * f(x);
+    // return x * x * f(x);
+    // return exp(x) * f(x);
+    return x * x * x * x * f(x);
     // return tolerance * (x + sin(tolerance * x));
     // return (x <= 1e-4)
     //            ? 0
@@ -1669,8 +1671,8 @@ void viewer::update_heat() {
   };
 
   for (size_t i = 0; i < potential.size(); ++i)
-    potential[i] =
-        modifier(tolerance * (potential[i] / surface.mean_edge_length[i]));
+    potential[i] = modifier(tolerance * (potential[i] / avg_edge_length));
+  // modifier(tolerance * (potential[i] / surface.mean_edge_length[i]));
 
   // device_heat.allocate_and_initialize(potential);
   // device->scalar_field.allocate_and_initialize(potential);
@@ -1762,7 +1764,7 @@ void viewer::compute_smooth_surface_mesh_curve() {
       const auto qx = norm(q - qy * vn);
 
       const auto t = (py * qx - qy * px) / (qx - px) * ivl;
-      const auto relaxation = 0.5f;
+      const auto relaxation = 0.1f;
       return std::clamp((1 - relaxation) * t0 + relaxation * t, 0.0, 1.0);
     };
 
@@ -1779,7 +1781,7 @@ void viewer::compute_smooth_surface_mesh_curve() {
       path[j].tEdge = relax(p, q, v1, v2, t0);
     };
 
-    for (size_t it = 0; it < 3; ++it) {
+    for (size_t it = 0; it < 10; ++it) {
       for (size_t i = 1; i < path.size() - 1; ++i) apply_relax(i - 1, i, i + 1);
       if (surface_vertex_curve_closed) {
         apply_relax(path.size() - 2, path.size() - 1, 0);
