@@ -614,7 +614,7 @@ void main() {
   glBindBuffer(GL_SHADER_STORAGE_BUFFER, device->ssbo.id());
   glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, device->ssbo.id());
 
-  surface_should_update = true;
+  // surface_should_update = true;
 
   const auto surface_vertex_curve_vs = opengl::vertex_shader{R"##(
 #version 460 core
@@ -958,6 +958,7 @@ void viewer::update() {
 
   if (surface_should_update) {
     // surface.update();
+    app().info("Viewer updated");
 
     compute_heat_data();
 
@@ -1099,7 +1100,7 @@ void viewer::render() {
 
 void viewer::store_image(const filesystem::path& path) {
   store_image_path = path;
-  store_image_frames = 1000;
+  store_image_frames = 3;
 }
 
 void viewer::store_image() {
@@ -1210,7 +1211,7 @@ void viewer::async_load_surface(const filesystem::path& path) {
   surface_load_task =
       async(launch::async, [this, &path] { load_surface(path); });
   app().info(format(
-      "Started to asynchronously load surface mesh from file.\nfile = '{}'",
+      "Started asynchronous loading of surface mesh from file.\nfile = '{}'",
       path.string()));
 }
 
@@ -1221,7 +1222,7 @@ void viewer::handle_surface_load_task() {
     return;
   }
 
-  // info("Sucessfully finished to asynchronously load surface mesh.");
+  app().info("Sucessfully finished asynchronous loading of surface mesh.");
 
   surface_load_task = {};
 }

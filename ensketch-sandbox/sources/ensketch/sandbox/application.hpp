@@ -8,49 +8,101 @@
 namespace ensketch::sandbox {
 
 class application {
+  // The application represents a singleton.
+  // Hence, its constructor is private and
+  // not allowed to be called from outside.
+  //
   application();
 
  public:
+  // As the constructor is private, there must be a function that
+  // calls it to handle the construction and handling of the application.
+  // This function returns a reference to the application.
+  //
   friend auto app() noexcept -> application&;
 
+  //
   ~application() noexcept;
 
+  // The application is not allowed to be copied or moved.
+  //
   application(const application&) = delete;
   application& operator=(const application&) = delete;
   application(application&&) = delete;
   application& operator=(application&&) = delete;
+
+  /// Standard Logging Functions
+  ///
+  void debug(const string& str) const {
+    console.log(format("DEBUG: {}\n\n", str));
+  }
+  void info(const string& str) const {
+    console.log(format("INFO:  {}\n\n", str));
+  }
+  void warn(const string& str) const {
+    console.log(format("WARN:  {}\n\n", str));
+  }
+  void error(const string& str) const {
+    console.log(format("ERROR: {}\n\n", str));
+  }
 
   /// This function runs the main event and update loop of the application.
   /// As of this it blocks further execution of subsequent statements.
   ///
   void run();
 
+  /// This functions returns the thread id on which 'run' has been called.
+  ///
+  auto running_thread() const noexcept -> thread::id { return run_thread; }
+
   ///
   ///
   void quit();
 
-  void info(const string& str) { console.log(format("INFO:  {}\n\n", str)); }
-  void warn(const string& str) { console.log(format("WARN:  {}\n\n", str)); }
-  void error(const string& str) { console.log(format("ERROR: {}\n\n", str)); }
-
   void eval_chaiscript(const filesystem::path& script);
   void eval_chaiscript(const string& code);
 
+  void async_eval_chaiscript(const filesystem::path& script);
+  void handle_eval_chaiscript_task();
+
+  void process_task_queue();
+  auto future_from_task_queue(auto&& f) {
+    packaged_task<void()> task{forward<decltype(f)>(f)};
+    auto result = task.get_future();
+    scoped_lock lock{task_queue_mutex};
+    task_queue.push(move(task));
+    return result;
+  }
+
   void open_viewer(int width, int height);
   void close_viewer();
+  auto async_open_viewer(int width, int height) -> future<void>;
+  auto async_close_viewer() -> future<void>;
 
  private:
   void init_chaiscript();
   void process_console_input();
 
+  void basic_open_viewer(int width, int height);
+  void basic_close_viewer();
+
  private:
+  bool running = true;
+  thread::id run_thread{};
+  mutex run_mutex{};
+
   struct impl;
   impl* pimpl = nullptr;
 
   ensketch::sandbox::console_io console{};
   ensketch::sandbox::frame_timer timer{10.0f};
   ensketch::sandbox::viewer viewer{};
-  bool running = true;
+
+  future<void> eval_chaiscript_task{};
+  list<function<void()>> chaiscript_functions{};
+
+  mutex task_queue_mutex{};
+  queue<packaged_task<void()>> task_queue{};
 };
 
 // If a friend declaration in a non-local class first

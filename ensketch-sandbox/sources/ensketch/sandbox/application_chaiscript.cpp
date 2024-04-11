@@ -22,7 +22,7 @@ struct application::impl {
 
 application::~application() noexcept {
   if (pimpl) delete pimpl;
-  info("Successfully destroyed application\n");
+  debug("Successfully destroyed application\n");
 }
 
 void application::eval_chaiscript(const filesystem::path& script) try {
@@ -39,6 +39,9 @@ void application::eval_chaiscript(const string& code) try {
 
 void application::init_chaiscript() {
   pimpl = new impl{};
+
+  pimpl->objects.emplace_back("quit", "Quit the application.",
+                              var(fun([this] { quit(); })));
 
   pimpl->objects.emplace_back(
       "open_viewer", "Open the viewer with an OpenGL context.",

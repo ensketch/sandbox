@@ -1,6 +1,7 @@
 #pragma once
 #include <optional>
 //
+#include <queue>
 #include <ranges>
 //
 #include <memory>

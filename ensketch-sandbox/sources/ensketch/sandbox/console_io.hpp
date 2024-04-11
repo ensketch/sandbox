@@ -25,7 +25,7 @@ struct console_io {
     repl.emulate_key_press(Replxx::KEY::control('D'));
   }
 
-  auto input() -> czstring { return repl.input(prompt); }
+  auto input() const -> czstring { return repl.input(prompt); }
 
   auto async_input() -> optional<czstring> {
     if (!input_task.valid())
@@ -41,7 +41,7 @@ struct console_io {
     repl.emulate_key_press(Replxx::KEY::ENTER);
   }
 
-  void log(const string& str) { repl.print(str.c_str()); }
+  void log(const string& str) const { repl.print(str.c_str()); }
 
   void capture(const string& str) { capture_str += str; }
 
@@ -51,7 +51,7 @@ struct console_io {
     capture_str = "";
   }
 
-  Replxx repl{};
+  mutable Replxx repl{};
   string base_prompt = "\x1b[1;32mensketch-sandbox\x1b[0m> ";
   string prompt = "\n" + base_prompt;
   string capture_str = "";
