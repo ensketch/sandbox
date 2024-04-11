@@ -26,6 +26,7 @@ void interpreter::run() {
 
   while (running) {
     process_task_queue();
+    this_thread::sleep_for(50ms);
   }
 
   running = false;
@@ -37,14 +38,16 @@ void interpreter::quit() {
 }
 
 void interpreter::process_task_queue() {
-  packaged_task<void()> task{};
-  {
-    scoped_lock lock{task_queue_mutex};
-    if (task_queue.empty()) return;
-    task = move(task_queue.front());
-    task_queue.pop();
+  while (true) {
+    packaged_task<void()> task{};
+    {
+      scoped_lock lock{task_queue_mutex};
+      if (task_queue.empty()) return;
+      task = move(task_queue.front());
+      task_queue.pop();
+    }
+    task();
   }
-  task();
 }
 
 void interpreter::eval_chaiscript(const filesystem::path& script) const try {

@@ -84,10 +84,11 @@ void application::init_interpreter_module() {
       tuple<string, string, sandbox::interpreter::chaiscript_value_type>>
       objects{
           {"help", "Print available functions.", var(fun([&] {
-             cout << "Available Functions:\n";
+             stringstream out{};
+             out << "Available Functions:\n";
              for (const auto& [name, help, data] : objects)
-               cout << '\t' << name << '\n' << "\t\t" << help << "\n\n";
-             cout << flush;
+               out << '\t' << name << '\n' << "\t\t" << help << "\n\n";
+             app().info(out.str());
            }))},
 
           {"quit", "Quit the application.", var(fun([this] { quit(); }))},
