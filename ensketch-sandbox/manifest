@@ -27,6 +27,7 @@ depends: glbinding ^3.0.0
 depends: glm ^0.9.9
 depends: libgeometrycentral
 depends: libigl-core ^2.5.0-
+depends: stb_image_write ^1.16.0
 
 depends: libcino
 

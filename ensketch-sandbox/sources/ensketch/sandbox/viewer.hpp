@@ -42,6 +42,9 @@ class viewer {
 
   void set_view_should_update() noexcept;
 
+  void store_image(const filesystem::path& path);
+  void store_image();
+
   void turn(const vec2& angle);
   void shift(const vec2& pixels);
   void zoom(float scale);
@@ -175,6 +178,10 @@ class viewer {
   };
   //
   optional<device_storage> device{};
+
+  //
+  filesystem::path store_image_path{};
+  int store_image_frames = 0;
 
   // Surface Mesh on Host
   //

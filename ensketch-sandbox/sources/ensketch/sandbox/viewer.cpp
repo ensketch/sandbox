@@ -12,6 +12,9 @@
 #include <geometrycentral/surface/halfedge_element_types.h>
 //
 #include <igl/avg_edge_length.h>
+//
+#define STB_IMAGE_WRITE_IMPLEMENTATION
+#include <stb_image_write.h>
 
 namespace ensketch::sandbox {
 
@@ -1086,6 +1089,41 @@ void viewer::render() {
   }
 
   window.display();
+
+  if (!store_image_path.empty()) {
+    view_should_update = true;
+    --store_image_frames;
+    if (store_image_frames <= 0) store_image();
+  }
+}
+
+void viewer::store_image(const filesystem::path& path) {
+  store_image_path = path;
+  store_image_frames = 1000;
+}
+
+void viewer::store_image() {
+  int width = camera.screen_width();
+  int height = camera.screen_height();
+  GLsizei nrChannels = 3;
+  GLsizei stride = nrChannels * width;
+  // stride += (stride % 4) ? (4 - stride % 4) : 0;
+  GLsizei bufferSize = stride * height;
+  std::vector<char> buffer(bufferSize);
+  // glPixelStorei(GL_PACK_ALIGNMENT, 4);
+  glPixelStorei(GL_PACK_ALIGNMENT, 1);
+  glReadBuffer(GL_FRONT);
+  glReadPixels(0, 0, width, height, GL_RGB, GL_UNSIGNED_BYTE, buffer.data());
+
+  stbi_flip_vertically_on_write(true);
+  stbi_write_png(store_image_path.c_str(), width, height, nrChannels,
+                 buffer.data(), stride);
+
+  app().info(format("Successfully stored view as image.\nfile = '{}'.",
+                    store_image_path.string()));
+
+  store_image_path.clear();
+  store_image_frames = 0;
 }
 
 void viewer::turn(const vec2& angle) {

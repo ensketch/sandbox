@@ -1,2 +1,6 @@
 open_viewer(500, 500);
-load_surface("/home/lyrahgames/data/models/libigl-data/armadillo.obj");
+// load_surface("/home/lyrahgames/projects/build2/libigl/upstream/libigl-tutorial-data/armadillo.obj");
+// load_surface("/home/lyrahgames/projects/build2/libigl/upstream/libigl-tutorial-data/bunny.off");
+load_surface("/home/lyrahgames/projects/build2/libigl/upstream/libigl-tutorial-data/fertility.off");
+
+store_image_from_viewer("test.png");

@@ -49,6 +49,11 @@ void application::init_chaiscript() {
                               var(fun([this]() { close_viewer(); })));
 
   pimpl->objects.emplace_back(
+      "store_image_from_viewer",
+      "Stores the viewer's current framebuffer as image.",
+      var(fun([this](const string& path) { viewer.store_image(path); })));
+
+  pimpl->objects.emplace_back(
       "load_surface", "Load a surface mesh from file.",
       var(fun([this](const string& path) { viewer.load_surface(path); })));
 
