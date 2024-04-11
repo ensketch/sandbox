@@ -958,7 +958,6 @@ void viewer::update() {
 
   if (surface_should_update) {
     // surface.update();
-    app().info("Viewer updated");
 
     compute_heat_data();
 
@@ -1125,6 +1124,27 @@ void viewer::store_image() {
 
   store_image_path.clear();
   store_image_frames = 0;
+}
+
+void viewer::store_image_from_view(const filesystem::path& path) {
+  int width = camera.screen_width();
+  int height = camera.screen_height();
+  GLsizei nrChannels = 3;
+  GLsizei stride = nrChannels * width;
+  // stride += (stride % 4) ? (4 - stride % 4) : 0;
+  GLsizei bufferSize = stride * height;
+  std::vector<char> buffer(bufferSize);
+  // glPixelStorei(GL_PACK_ALIGNMENT, 4);
+  glPixelStorei(GL_PACK_ALIGNMENT, 1);
+  glReadBuffer(GL_FRONT);
+  glReadPixels(0, 0, width, height, GL_RGB, GL_UNSIGNED_BYTE, buffer.data());
+
+  stbi_flip_vertically_on_write(true);
+  stbi_write_png(path.c_str(), width, height, nrChannels, buffer.data(),
+                 stride);
+
+  app().info(format("Successfully stored view as image.\nfile = '{}'.",
+                    path.string()));
 }
 
 void viewer::turn(const vec2& angle) {

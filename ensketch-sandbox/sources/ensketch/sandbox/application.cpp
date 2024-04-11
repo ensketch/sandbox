@@ -8,8 +8,11 @@ auto app() noexcept -> application& {
 }
 
 application::application() {
-  init_chaiscript();
   debug("Successfully constructed application.");
+}
+
+application::~application() noexcept {
+  debug("Successfully destroyed application\n");
 }
 
 void application::run() {
@@ -20,14 +23,18 @@ void application::run() {
     run_thread = this_thread::get_id();
   }
 
+  interpreter_task = async(launch::async, [this] {
+    init_interpreter_module();
+    interpreter.run();
+  });
+
   running = true;
 
   while (running) {
     console.capture(format("FPS = {:6.2f}\n", timer.fps()));
 
     process_console_input();
-    handle_eval_chaiscript_task();
-
+    process_eval_chaiscript_task();
     process_task_queue();
 
     if (viewer) {
@@ -41,6 +48,7 @@ void application::run() {
   }
 
   console.abort_input();
+  interpreter.quit();
 
   running = false;
   run_thread = {};
@@ -60,8 +68,58 @@ void application::process_console_input() {
     string input = tmp;
     if (input.empty()) return;
     console.log("\n");
-    eval_chaiscript(input);
+    // eval_chaiscript(input);
+    auto task = interpreter.future_from_task_queue(
+        [this, input] { interpreter.eval_chaiscript(input); });
   }
+}
+
+void application::init_interpreter_module() {
+  using namespace chaiscript;
+
+  // Construct a static vector of all ChaiScript functions.
+  // It needs to be static as the help function will need to refer to it.
+  //
+  static vector<
+      tuple<string, string, sandbox::interpreter::chaiscript_value_type>>
+      objects{
+          {"help", "Print available functions.", var(fun([&] {
+             cout << "Available Functions:\n";
+             for (const auto& [name, help, data] : objects)
+               cout << '\t' << name << '\n' << "\t\t" << help << "\n\n";
+             cout << flush;
+           }))},
+
+          {"quit", "Quit the application.", var(fun([this] { quit(); }))},
+
+          {"open_viewer", "Open the viewer with an OpenGL context.",
+           var(fun(
+               [this](int width, int height) { open_viewer(width, height); }))},
+
+          {"close_viewer", "Close the viewer and OpenGL context.",
+           var(fun([this]() { close_viewer(); }))},
+
+          {"store_image_from_viewer",
+           "Stores the viewer's current framebuffer as image.",
+           var(fun([this](const string& path) {
+             // viewer.store_image(path);
+             auto task = future_from_task_queue(
+                 [this, path] { viewer.store_image_from_view(path); });
+             task.wait();
+           }))},
+
+          {"load_surface", "Load a surface mesh from file.",
+           var(fun([this](const string& path) {
+             // viewer.load_surface(path);
+             auto task = future_from_task_queue(
+                 [this, path] { viewer.load_surface(path); });
+             task.wait();
+           }))},
+      };
+
+  // Add all module functions to the current ChaiScript thread.
+  //
+  for (const auto& [name, help, data] : objects) interpreter.add(data, name);
 }
 
 void application::async_eval_chaiscript(const filesystem::path& path) {
@@ -73,19 +131,15 @@ void application::async_eval_chaiscript(const filesystem::path& path) {
     return;
   }
 
-  eval_chaiscript_task = async(
-      launch::async,
-      [this](const auto& path) {
-        init_chaiscript();
-        eval_chaiscript(path);
-      },
-      path);
+  eval_chaiscript_task = interpreter.future_from_task_queue(
+      [this, path] { interpreter.eval_chaiscript(path); });
+
   info(
       format("Started asynchronous evaluation of ChaiScript file.\nfile = '{}'",
              path.string()));
 }
 
-void application::handle_eval_chaiscript_task() {
+void application::process_eval_chaiscript_task() {
   if (!eval_chaiscript_task.valid()) return;
   if (future_status::ready != eval_chaiscript_task.wait_for(0s)) return;
   eval_chaiscript_task = {};

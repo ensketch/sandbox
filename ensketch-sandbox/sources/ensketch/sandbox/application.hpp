@@ -3,6 +3,7 @@
 //
 #include <ensketch/sandbox/console_io.hpp>
 #include <ensketch/sandbox/frame_timer.hpp>
+#include <ensketch/sandbox/interpreter.hpp>
 #include <ensketch/sandbox/viewer.hpp>
 
 namespace ensketch::sandbox {
@@ -59,13 +60,8 @@ class application {
   ///
   void quit();
 
-  void eval_chaiscript(const filesystem::path& script);
-  void eval_chaiscript(const string& code);
-
   void async_eval_chaiscript(const filesystem::path& script);
-  void handle_eval_chaiscript_task();
 
-  void process_task_queue();
   auto future_from_task_queue(auto&& f) {
     packaged_task<void()> task{forward<decltype(f)>(f)};
     auto result = task.get_future();
@@ -80,8 +76,10 @@ class application {
   auto async_close_viewer() -> future<void>;
 
  private:
-  void init_chaiscript();
+  void init_interpreter_module();
   void process_console_input();
+  void process_task_queue();
+  void process_eval_chaiscript_task();
 
   void basic_open_viewer(int width, int height);
   void basic_close_viewer();
@@ -91,15 +89,13 @@ class application {
   thread::id run_thread{};
   mutex run_mutex{};
 
-  struct impl;
-  impl* pimpl = nullptr;
-
   ensketch::sandbox::console_io console{};
   ensketch::sandbox::frame_timer timer{10.0f};
   ensketch::sandbox::viewer viewer{};
 
+  ensketch::sandbox::interpreter interpreter{};
+  future<void> interpreter_task{};
   future<void> eval_chaiscript_task{};
-  list<function<void()>> chaiscript_functions{};
 
   mutex task_queue_mutex{};
   queue<packaged_task<void()>> task_queue{};

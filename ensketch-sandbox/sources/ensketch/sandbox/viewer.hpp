@@ -45,6 +45,8 @@ class viewer {
   void store_image(const filesystem::path& path);
   void store_image();
 
+  void store_image_from_view(const filesystem::path& path);
+
   void turn(const vec2& angle);
   void shift(const vec2& pixels);
   void zoom(float scale);
