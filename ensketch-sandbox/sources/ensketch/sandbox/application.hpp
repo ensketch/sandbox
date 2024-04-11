@@ -70,6 +70,12 @@ class application {
     return result;
   }
 
+  auto path_from_lookup(const filesystem::path& path) -> filesystem::path {
+    if (path.is_absolute()) return path;
+    if (lookup_path.empty()) return path;
+    return lookup_path / path;
+  }
+
   void open_viewer(int width, int height);
   void close_viewer();
   auto async_open_viewer(int width, int height) -> future<void>;
@@ -99,6 +105,8 @@ class application {
 
   mutex task_queue_mutex{};
   queue<packaged_task<void()>> task_queue{};
+
+  filesystem::path lookup_path{};
 };
 
 // If a friend declaration in a non-local class first

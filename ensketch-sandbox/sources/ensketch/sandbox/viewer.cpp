@@ -1127,6 +1127,8 @@ void viewer::store_image() {
 }
 
 void viewer::store_image_from_view(const filesystem::path& path) {
+  const auto p = app().path_from_lookup(path);
+
   int width = camera.screen_width();
   int height = camera.screen_height();
   GLsizei nrChannels = 3;
@@ -1140,11 +1142,10 @@ void viewer::store_image_from_view(const filesystem::path& path) {
   glReadPixels(0, 0, width, height, GL_RGB, GL_UNSIGNED_BYTE, buffer.data());
 
   stbi_flip_vertically_on_write(true);
-  stbi_write_png(path.c_str(), width, height, nrChannels, buffer.data(),
-                 stride);
+  stbi_write_png(p.c_str(), width, height, nrChannels, buffer.data(), stride);
 
-  app().info(format("Successfully stored view as image.\nfile = '{}'.",
-                    path.string()));
+  app().info(
+      format("Successfully stored view as image.\nfile = '{}'.", p.string()));
 }
 
 void viewer::turn(const vec2& angle) {
@@ -1191,10 +1192,11 @@ void viewer::set_y_as_up() {
 }
 
 void viewer::load_surface(const filesystem::path& path) {
+  const auto p = app().path_from_lookup(path);
   try {
     const auto load_start = clock::now();
 
-    surface = polyhedral_surface_from(path);
+    surface = polyhedral_surface_from(p);
     surface.generate_edges();
 
     const auto load_end = clock::now();
@@ -1210,12 +1212,12 @@ void viewer::load_surface(const filesystem::path& path) {
     surface_should_update = true;
 
     app().info(format("Sucessfully loaded surface mesh from file.\nfile = '{}'",
-                      path.string()));
+                      p.string()));
 
   } catch (exception& e) {
     app().error(
         format("Failed to load surface mesh from file.\n{}\nfile = '{}'",
-               e.what(), path.string()));
+               e.what(), p.string()));
     return;
   }
 }

@@ -132,8 +132,12 @@ void application::async_eval_chaiscript(const filesystem::path& path) {
     return;
   }
 
-  eval_chaiscript_task = interpreter.future_from_task_queue(
-      [this, path] { interpreter.eval_chaiscript(path); });
+  eval_chaiscript_task = interpreter.future_from_task_queue([this, path] {
+    const auto abs_path = absolute(path);
+    lookup_path = abs_path.parent_path();
+    interpreter.eval_chaiscript(abs_path);
+    lookup_path = filesystem::path{};
+  });
 
   info(
       format("Started asynchronous evaluation of ChaiScript file.\nfile = '{}'",
