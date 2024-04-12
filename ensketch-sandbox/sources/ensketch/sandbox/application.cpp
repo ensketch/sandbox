@@ -141,6 +141,32 @@ void application::init_interpreter_module() {
                  [this, path] { viewer.load_surface_vertex_curve(path); });
              task.wait();
            }))},
+
+          {"smooth_surface_vertex_curve",
+           "Smooth the current surface vertex curve by using the geodetic "
+           "smoothing approach.",
+           var(fun([this](double tolerance, int laplace_iterations,
+                          double laplace_relaxation) {
+             auto task = future_from_task_queue([&, this] {
+               viewer.tolerance = tolerance;
+               viewer.laplace_iterations = laplace_iterations;
+               viewer.laplace_relaxation = laplace_relaxation;
+               viewer.compute_smooth_surface_mesh_curve();
+             });
+             task.wait();
+           }))},
+
+          {"hyper_smooth_surface_vertex_curve",
+           "Smooth the current surface vertex curve by using the hyper surface "
+           "smoothing approach.",
+           var(fun([this](double lambda, int smoothing_passes) {
+             auto task = future_from_task_queue([&, this] {
+               viewer.hyper_lambda = lambda;
+               viewer.hyper_smoothing_passes = smoothing_passes;
+               viewer.compute_hyper_surface_smoothing();
+             });
+             task.wait();
+           }))},
       };
 
   // Add all module functions to the current ChaiScript thread.

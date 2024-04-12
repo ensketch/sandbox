@@ -924,6 +924,14 @@ void viewer::process_events() {
           tolerance *= 0.9f;
           compute_smooth_surface_mesh_curve();
           break;
+        case sf::Keyboard::Right:
+          set_heat_time_scale(heat_time_scale * 1.1f);
+          compute_smooth_surface_mesh_curve();
+          break;
+        case sf::Keyboard::Left:
+          set_heat_time_scale(heat_time_scale * 0.9f);
+          compute_smooth_surface_mesh_curve();
+          break;
         case sf::Keyboard::B:
           compute_surface_bipartition_from_surface_vertex_curve();
           break;
@@ -1720,7 +1728,7 @@ void viewer::compute_heat_data() {
 
   // cout << "avg edge length = " << e << endl;
 
-  auto t = /*10.0f **/ pow(e, 2);
+  auto t = heat_time_scale * pow(e, 2);
   if (!igl::heat_geodesics_precompute(surface_vertex_matrix,
                                       surface_face_matrix, t, heat_data)) {
     cerr << "ERROR: Precomputation of heat data failed." << endl;
@@ -1750,6 +1758,9 @@ void viewer::update_heat() {
     max_distance = std::max(max_distance, heat[i]);
 
   // cout << "max distance = " << max_distance << endl;
+  app().info(
+      format("max distance from surface vertex curve = {}", max_distance));
+
   for (auto i : line_vids) potential[i] = 0;
 
   const auto modifier = [this](auto x) {
@@ -1759,9 +1770,10 @@ void viewer::update_heat() {
     // };
     const auto square = [](auto x) { return x * x; };
     // const auto t = tolerance * x - bound;
+    return x * x;
     // return x * x * f(x);
     // return exp(x) * f(x);
-    return x * x * x * x * f(x);
+    // return x * x * x * x * f(x);
     // return tolerance * (x + sin(tolerance * x));
     // return (x <= 1e-4)
     //            ? 0
@@ -1771,7 +1783,9 @@ void viewer::update_heat() {
   };
 
   for (size_t i = 0; i < potential.size(); ++i)
-    potential[i] = modifier(tolerance * (potential[i] / avg_edge_length));
+    potential[i] =
+        max_distance * modifier(tolerance * potential[i] / max_distance);
+  // potential[i] = modifier(tolerance * (potential[i] / avg_edge_length));
   // modifier(tolerance * (potential[i] / surface.mean_edge_length[i]));
 
   // device_heat.allocate_and_initialize(potential);
@@ -1789,9 +1803,18 @@ void viewer::update_heat() {
     edge_lengths[e] = sqrt(length2(surface.vertices[vid1].position -
                                    surface.vertices[vid2].position) +
                            squared(potential[vid1] - potential[vid2]));
+    // edge_lengths[e] = sqrt(length2(surface.vertices[vid1].position -
+    //                                surface.vertices[vid2].position) /
+    //                            pow(avg_edge_length, 2) +
+    //                        squared(potential[vid1] - potential[vid2]));
   }
   //
   lifted_geometry = make_unique<EdgeLengthGeometry>(*mesh, edge_lengths);
+}
+
+void viewer::set_heat_time_scale(float scale) {
+  heat_time_scale = scale;
+  compute_heat_data();
 }
 
 void viewer::compute_smooth_surface_mesh_curve() {
@@ -1799,6 +1822,16 @@ void viewer::compute_smooth_surface_mesh_curve() {
   // cout << "initial line vertices = " << line_vids.size() << endl;
 
   if (line_vids.size() <= 1) return;
+
+  app().info(
+      format("heat time scale = {}\n"
+             "avg edge length = {}\n"
+             "tolerance = {}\n"
+             "minimal_length_scale = {}\n"
+             "laplace_iterations = {}\n"
+             "laplace_relaxation = {}\n",
+             heat_time_scale, avg_edge_length, tolerance, minimal_length_scale,
+             laplace_iterations, laplace_relaxation));
 
   const auto start = clock::now();
 
@@ -1837,8 +1870,8 @@ void viewer::compute_smooth_surface_mesh_curve() {
   }
 
   FlipEdgeNetwork network(*mesh, *lifted_geometry, {edges});
-  // network.iterativeShorten(INVALID_IND, 0.0);
-  network.iterativeShorten();
+  network.iterativeShorten(INVALID_IND, minimal_length_scale);
+  // network.iterativeShorten();
   network.posGeom = geometry.get();
 
   // vector<Vector3> path = network.getPathPolyline3D().front();
@@ -1864,7 +1897,7 @@ void viewer::compute_smooth_surface_mesh_curve() {
       const auto qx = norm(q - qy * vn);
 
       const auto t = (py * qx - qy * px) / (qx - px) * ivl;
-      const auto relaxation = 0.1f;
+      const auto relaxation = laplace_relaxation;
       return std::clamp((1 - relaxation) * t0 + relaxation * t, 0.0, 1.0);
     };
 
@@ -1881,7 +1914,7 @@ void viewer::compute_smooth_surface_mesh_curve() {
       path[j].tEdge = relax(p, q, v1, v2, t0);
     };
 
-    for (size_t it = 0; it < 10; ++it) {
+    for (size_t it = 0; it < laplace_iterations; ++it) {
       for (size_t i = 1; i < path.size() - 1; ++i) apply_relax(i - 1, i, i + 1);
       if (surface_vertex_curve_closed) {
         apply_relax(path.size() - 2, path.size() - 1, 0);
@@ -1963,7 +1996,8 @@ void viewer::compute_hyper_surface_smoothing() try {
   for (uint pid = 0; pid < m.num_polys(); ++pid)
     m.poly_data(pid).label = (face_mask[pid] < 0.0f) ? 0 : 1;
 
-  ScalarField res = smooth_discrete_hyper_surface(m);
+  ScalarField res =
+      smooth_discrete_hyper_surface(m, hyper_lambda, hyper_smoothing_passes);
   vector<float> field(res.size());
   for (size_t i = 0; i < res.size(); ++i) field[i] = res[i];
 

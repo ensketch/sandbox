@@ -19,10 +19,9 @@ namespace ensketch::sandbox {
 using namespace cinolib;
 //
 template <class Mesh>
-ScalarField smooth_discrete_hyper_surface(Mesh& m) {
-  constexpr auto LAMBDA = 0.1;
-  constexpr auto SMOOTHING_PASSES = 5;
-
+ScalarField smooth_discrete_hyper_surface(Mesh& m,
+                                          double LAMBDA = 0.1,
+                                          uint SMOOTHING_PASSES = 5) {
   // STEP ONE: compute heat flow
   std::vector<uint> heat_sources;
   for (uint vid = 0; vid < m.num_verts(); ++vid) {

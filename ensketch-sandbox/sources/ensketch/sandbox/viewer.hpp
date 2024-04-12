@@ -103,6 +103,8 @@ class viewer {
   void compute_heat_data();
   void update_heat();
 
+  void set_heat_time_scale(float scale);
+
   void compute_smooth_surface_mesh_curve();
 
   void compute_surface_bipartition_from_surface_vertex_curve();
@@ -240,14 +242,26 @@ class viewer {
   igl::HeatGeodesicsData<double> heat_data;
   Eigen::VectorXd heat;
   vector<float> potential;
+  float heat_time_scale = 10.0f;
   //
   // Geodetic Smoothing
   //
   unique_ptr<geometrycentral::surface::EdgeLengthGeometry> lifted_geometry{};
   float avg_edge_length = 1.0f;
-  float tolerance = 2.0f;
-  float bound = 1.0f;
-  float transition = 1.0f;
+
+ public:
+  float tolerance = 10.0f;
+  //
+  double minimal_length_scale = 0.0;
+  //
+  size_t laplace_iterations = 10;
+  float laplace_relaxation = 0.1f;
+
+  // Hyper Surface Smoothing
+  //
+ public:
+  double hyper_lambda = 0.1;
+  size_t hyper_smoothing_passes = 5;
 };
 
 }  // namespace ensketch::sandbox
