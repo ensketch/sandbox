@@ -127,6 +127,20 @@ void application::init_interpreter_module() {
                  [this, path] { viewer.load_perspective(path); });
              task.wait();
            }))},
+
+          {"save_surface_vertex_curve",
+           "Save current surface vertex curve to given file.",
+           var(fun([this](const string& path) {
+             viewer.save_surface_vertex_curve(path);
+           }))},
+
+          {"load_surface_vertex_curve",
+           "Load surface vertex curve from given file.",
+           var(fun([this](const string& path) {
+             auto task = future_from_task_queue(
+                 [this, path] { viewer.load_surface_vertex_curve(path); });
+             task.wait();
+           }))},
       };
 
   // Add all module functions to the current ChaiScript thread.

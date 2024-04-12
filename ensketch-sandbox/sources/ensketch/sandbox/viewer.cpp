@@ -1150,7 +1150,7 @@ void viewer::store_image_from_view(const filesystem::path& path) {
 
 void viewer::save_perspective(const filesystem::path& path) {
   const auto p = app().path_from_lookup(path);
-  ofstream file{path};
+  ofstream file{p};
   if (!file) {
     app().error(
         format("Failed to save view to file.\nfile = '{}'", p.string()));
@@ -1168,7 +1168,7 @@ void viewer::save_perspective(const filesystem::path& path) {
 
 void viewer::load_perspective(const filesystem::path& path) {
   const auto p = app().path_from_lookup(path);
-  ifstream file{path};
+  ifstream file{p};
   if (!file) {
     app().error(
         format("Failed to load view from file.\nfile = '{}'", p.string()));
@@ -1971,6 +1971,56 @@ void viewer::compute_hyper_surface_smoothing() try {
 
 } catch (runtime_error& e) {
   app().error(e.what());
+}
+
+void viewer::save_surface_vertex_curve(const filesystem::path& path) {
+  const auto p = app().path_from_lookup(path);
+  ofstream file{p};
+  if (!file) {
+    app().error(
+        format("Failed to save surface vertex curve to file.\nfile = '{}'",
+               p.string()));
+    return;
+  }
+
+  for (auto vid : surface_vertex_curve) file << vid << '\n';
+  if (surface_vertex_curve_closed) file << surface_vertex_curve.front() << '\n';
+
+  app().info(
+      format("Successfully saved surface vertex curve to file.\nfile = '{}'",
+             p.string()));
+}
+
+void viewer::load_surface_vertex_curve(const filesystem::path& path) {
+  const auto p = app().path_from_lookup(path);
+  ifstream file{p};
+  if (!file) {
+    app().error(
+        format("Failed to load surface vertex curve from file.\nfile = '{}'",
+               p.string()));
+    return;
+  }
+
+  surface_vertex_curve.clear();
+  surface_vertex_curve_closed = false;
+
+  polyhedral_surface::vertex_id vid{};
+
+  while (file >> vid) surface_vertex_curve.push_back(vid);
+
+  device->surface_vertex_curve_data.allocate_and_initialize(
+      surface_vertex_curve);
+
+  if (surface_vertex_curve.front() == surface_vertex_curve.back()) {
+    surface_vertex_curve.pop_back();
+    surface_vertex_curve_closed = true;
+  }
+
+  app().info(
+      format("Successfully loaded surface vertex curve from file.\nfile = '{}'",
+             p.string()));
+
+  view_should_update = true;
 }
 
 }  // namespace ensketch::sandbox

@@ -111,6 +111,9 @@ class viewer {
   void reset_surface_scalar_field();
   void compute_hyper_surface_smoothing();
 
+  void save_surface_vertex_curve(const filesystem::path& path);
+  void load_surface_vertex_curve(const filesystem::path& path);
+
  private:
   bool _running = false;
 
