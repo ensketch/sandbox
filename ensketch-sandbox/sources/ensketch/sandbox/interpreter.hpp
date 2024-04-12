@@ -1,7 +1,13 @@
 #pragma once
 #include <ensketch/sandbox/utility.hpp>
 //
-#include <chaiscript/chaiscript_basic.hpp>
+// #include <chaiscript/chaiscript_basic.hpp>
+#include <chaiscript/chaiscript_defines.hpp>
+#include <chaiscript/dispatchkit/boxed_number.hpp>
+#include <chaiscript/dispatchkit/dispatchkit.hpp>
+#include <chaiscript/dispatchkit/dynamic_object.hpp>
+#include <chaiscript/dispatchkit/function_call.hpp>
+#include <chaiscript/language/chaiscript_eval.hpp>
 
 namespace ensketch::sandbox {
 

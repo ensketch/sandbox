@@ -1144,8 +1144,47 @@ void viewer::store_image_from_view(const filesystem::path& path) {
   stbi_flip_vertically_on_write(true);
   stbi_write_png(p.c_str(), width, height, nrChannels, buffer.data(), stride);
 
+  app().info(format("Successfully stored framebuffer as image.\nfile = '{}'.",
+                    p.string()));
+}
+
+void viewer::save_perspective(const filesystem::path& path) {
+  const auto p = app().path_from_lookup(path);
+  ofstream file{path};
+  if (!file) {
+    app().error(
+        format("Failed to save view to file.\nfile = '{}'", p.string()));
+    return;
+  }
+  file << format("{} {} {}\n", origin.x, origin.y, origin.z)
+       << format("{} {} {}\n", up.x, up.y, up.z)
+       << format("{} {} {}\n", right.x, right.y, right.z)
+       << format("{} {} {}\n", front.x, front.y, front.z)
+       << format("{} {} {}\n", radius, altitude, azimuth);
+
   app().info(
-      format("Successfully stored view as image.\nfile = '{}'.", p.string()));
+      format("Successfully saved view to file.\nfile = '{}'", p.string()));
+}
+
+void viewer::load_perspective(const filesystem::path& path) {
+  const auto p = app().path_from_lookup(path);
+  ifstream file{path};
+  if (!file) {
+    app().error(
+        format("Failed to load view from file.\nfile = '{}'", p.string()));
+    return;
+  }
+  file                                     //
+      >> origin.x >> origin.y >> origin.z  //
+      >> up.x >> up.y >> up.z              //
+      >> right.x >> right.y >> right.z     //
+      >> front.x >> front.y >> front.z     //
+      >> radius >> altitude >> azimuth;
+
+  app().info(
+      format("Successfully loaded view from file.\nfile = '{}'", p.string()));
+
+  view_should_update = true;
 }
 
 void viewer::turn(const vec2& angle) {

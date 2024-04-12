@@ -116,6 +116,17 @@ void application::init_interpreter_module() {
                  [this, path] { viewer.load_surface(path); });
              task.wait();
            }))},
+
+          {"save_perspective", "Save camera perspective to given file.",
+           var(fun(
+               [this](const string& path) { viewer.save_perspective(path); }))},
+
+          {"load_perspective", "Load camera perspective from given file.",
+           var(fun([this](const string& path) {
+             auto task = future_from_task_queue(
+                 [this, path] { viewer.load_perspective(path); });
+             task.wait();
+           }))},
       };
 
   // Add all module functions to the current ChaiScript thread.

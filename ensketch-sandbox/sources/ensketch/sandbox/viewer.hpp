@@ -47,6 +47,9 @@ class viewer {
 
   void store_image_from_view(const filesystem::path& path);
 
+  void save_perspective(const filesystem::path& path);
+  void load_perspective(const filesystem::path& path);
+
   void turn(const vec2& angle);
   void shift(const vec2& pixels);
   void zoom(float scale);
