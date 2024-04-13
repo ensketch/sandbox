@@ -187,6 +187,9 @@ void main(){
 
 // uniform bool lighting = true;
 
+uniform bool wireframe = false;
+uniform bool use_face_normal = false;
+
 in vec3 pos;
 in vec3 nor;
 in vec3 vnor;
@@ -285,33 +288,41 @@ void main() {
   // frag_color = vec4(color, 1.0);
 
   // Compute distance from edges.
+
   float d = min(edge_distance.x, edge_distance.y);
   d = min(d, edge_distance.z);
   float line_width = 0.01;
   float line_delta = 1.0;
   float alpha = 1.0;
   vec4 line_color = vec4(vec3(0.5), alpha);
+
   float mix_value =
       smoothstep(line_width - line_delta, line_width + line_delta, d);
+
   // float mix_value = 1.0;
   // Compute viewer shading.
-  float s = abs(normalize(nor).z);
-  // float s = abs(normalize(vnor).z);
+
+  float s = abs(normalize(vnor).z);
+  if (use_face_normal)
+    s = abs(normalize(nor).z);
+
   float light = 0.2 + 1.0 * pow(s, 1000) + 0.75 * pow(s, 0.2);
+
   // float light = 0.2 + 0.75 * pow(s, 0.2);
+
   vec4 light_color = vec4(vec3(light), alpha);
+
   // Mix both color values.
+
   float transition = 0.5;
+
   // light_color = mix(vec4(0.0, 0.0, 0.0, 1.0), light_color, smoothstep(phi, -10.0, 10.0));
   // if (!lighting) light_color = color;
-  frag_color = mix(line_color, light_color, mix_value);
-  // if (mix_value > 0.9) discard;
-  //   frag_color = (1 - mix_value) * line_color;
 
-  // if (label[gl_PrimitiveID] > 0)
-  //   frag_color = mix(frag_color, vec4(1.0, 0.0, 0.0, 1.0), 0.5);
-  // else if (label[gl_PrimitiveID] < 0)
-  //   frag_color = mix(frag_color, vec4(0.0, 0.0, 1.0, 1.0), 0.5);
+  if (wireframe)
+    frag_color = mix(line_color, light_color, mix_value);
+  else
+    frag_color = light_color;
 }
 )##"};
 
@@ -502,7 +513,7 @@ void main(){
   const auto level_set_fs = opengl::fragment_shader{R"##(
 #version 460 core
 
-uniform vec3 line_color;
+uniform vec4 line_color;
 
 noperspective in vec2 uv;
 
@@ -511,7 +522,7 @@ layout (location = 0) out vec4 frag_color;
 void main() {
   // frag_color = vec4(0.1, 0.5, 0.9, 1.0);
   if (length(uv) >= 1.0) discard;
-    frag_color = vec4(line_color, 1.0);
+    frag_color = line_color;
 }
 )##"};
 
@@ -742,7 +753,7 @@ void main(){
   const auto surface_vertex_curve_fs = opengl::fragment_shader{R"##(
 #version 460 core
 
-uniform vec3 line_color;
+uniform vec4 line_color;
 
 noperspective in vec2 uv;
 
@@ -751,7 +762,7 @@ layout (location = 0) out vec4 frag_color;
 void main() {
   // frag_color = vec4(0.1, 0.5, 0.9, 1.0);
   if (length(uv) >= 1.0) discard;
-  frag_color = vec4(line_color, 1.0);
+  frag_color = line_color;
 }
 )##"};
 
@@ -1056,29 +1067,33 @@ void viewer::render() {
 
   glDepthFunc(GL_ALWAYS);
 
-  device->level_set_shader.set("line_width", 3.5f);
-  device->level_set_shader.set("line_color", vec3{0.9, 0.5, 0.1});
-  device->level_set_shader.use();
-  glDrawElements(GL_TRIANGLES, 3 * surface.faces.size(), GL_UNSIGNED_INT, 0);
-
   if (!surface_vertex_curve.empty()) {
     device->va.bind();
     device->surface_vertex_curve_data.bind();
     device->surface_vertex_curve_shader.use();
     device->surface_vertex_curve_shader.set("line_width", 3.5f);
-    device->surface_vertex_curve_shader.set("line_color", vec3{0.5f});
+    device->surface_vertex_curve_shader.set("line_color",
+                                            vec4{vec3{0.5f}, 0.8f});
     glDrawElements(
         GL_LINE_STRIP,
         surface_vertex_curve.size() + ((surface_vertex_curve_closed) ? 1 : 0),
         GL_UNSIGNED_INT, 0);
   }
 
+  device->va.bind();
+  device->faces.bind();
+  device->level_set_shader.set("line_width", 3.5f);
+  device->level_set_shader.set("line_color", vec4{0.9, 0.5, 0.1, 0.8});
+  device->level_set_shader.use();
+  glDrawElements(GL_TRIANGLES, 3 * surface.faces.size(), GL_UNSIGNED_INT, 0);
+
   if (!surface_mesh_curve.empty()) {
     device->surface_mesh_curve_va.bind();
     device->surface_mesh_curve_data.bind();
     device->surface_vertex_curve_shader.use();
     device->surface_vertex_curve_shader.set("line_width", 3.5f);
-    device->surface_vertex_curve_shader.set("line_color", vec3{0.1, 0.5, 0.9});
+    device->surface_vertex_curve_shader.set("line_color",
+                                            vec4{0.2, 0.6, 0.95, 0.8});
     glDrawArrays(GL_LINE_STRIP, 0, surface_mesh_curve.size());
   }
 
@@ -1758,8 +1773,8 @@ void viewer::update_heat() {
     max_distance = std::max(max_distance, heat[i]);
 
   // cout << "max distance = " << max_distance << endl;
-  app().info(
-      format("max distance from surface vertex curve = {}", max_distance));
+  // app().info(
+  //     format("max distance from surface vertex curve = {}", max_distance));
 
   for (auto i : line_vids) potential[i] = 0;
 
@@ -1874,6 +1889,8 @@ void viewer::compute_smooth_surface_mesh_curve() {
   // network.iterativeShorten();
   network.posGeom = geometry.get();
 
+  const auto geodesic_end = clock::now();
+
   // vector<Vector3> path = network.getPathPolyline3D().front();
   auto paths = network.getPathPolyline();
   auto& path = paths.front();
@@ -1927,7 +1944,8 @@ void viewer::compute_smooth_surface_mesh_curve() {
   const auto end = clock::now();
 
   const auto heat_time = duration(heat_end - start).count();
-  const auto geoesic_time = duration(end - heat_end).count();
+  const auto geoesic_time = duration(geodesic_end - heat_end).count();
+  const auto laplace_time = duration(end - geodesic_end).count();
   const auto time = duration(end - start).count();
 
   // cout << "time = " << time << " s\n"
@@ -1936,6 +1954,13 @@ void viewer::compute_smooth_surface_mesh_curve() {
   //      << "tolerance = " << tolerance << '\n'
   //      << endl;
 
+  app().info(
+      format("time = {} s\n"
+             "heat time = {} s\n"
+             "geodesic time = {} s\n"
+             "laplace time = {}\n",
+             time, heat_time, geoesic_time, laplace_time));
+
   surface_mesh_curve.clear();
   for (const auto& v : positions)
     surface_mesh_curve.push_back(vec3{real(v.x), real(v.y), real(v.z)});
@@ -1943,6 +1968,11 @@ void viewer::compute_smooth_surface_mesh_curve() {
     device->surface_mesh_curve_data.allocate_and_initialize(surface_mesh_curve);
 
   // cout << "smoothed line vertices = " << device_line.vertices.size() << endl;
+
+  app().info(
+      format("surface vertex curve vertices = {}\n"
+             "surface mesh curve vertices = {}\n",
+             surface_vertex_curve.size(), surface_mesh_curve.size()));
 }
 
 void viewer::compute_surface_bipartition_from_surface_vertex_curve() {
@@ -1996,12 +2026,17 @@ void viewer::compute_hyper_surface_smoothing() try {
   for (uint pid = 0; pid < m.num_polys(); ++pid)
     m.poly_data(pid).label = (face_mask[pid] < 0.0f) ? 0 : 1;
 
+  const auto start = clock::now();
   ScalarField res =
       smooth_discrete_hyper_surface(m, hyper_lambda, hyper_smoothing_passes);
+  const auto end = clock::now();
+
   vector<float> field(res.size());
   for (size_t i = 0; i < res.size(); ++i) field[i] = res[i];
 
   device->scalar_field.allocate_and_initialize(field);
+
+  app().info(format("hyper time = {}", duration(end - start).count()));
 
 } catch (runtime_error& e) {
   app().error(e.what());
@@ -2055,6 +2090,14 @@ void viewer::load_surface_vertex_curve(const filesystem::path& path) {
              p.string()));
 
   view_should_update = true;
+}
+
+void viewer::set_wireframe(bool value) {
+  device->shader.set("wireframe", value);
+}
+
+void viewer::use_face_normal(bool value) {
+  device->shader.set("use_face_normal", value);
 }
 
 }  // namespace ensketch::sandbox

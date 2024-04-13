@@ -116,6 +116,9 @@ class viewer {
   void save_surface_vertex_curve(const filesystem::path& path);
   void load_surface_vertex_curve(const filesystem::path& path);
 
+  void set_wireframe(bool value);
+  void use_face_normal(bool value);
+
  private:
   bool _running = false;
 

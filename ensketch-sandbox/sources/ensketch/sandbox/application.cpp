@@ -100,8 +100,7 @@ void application::init_interpreter_module() {
           {"close_viewer", "Close the viewer and OpenGL context.",
            var(fun([this]() { close_viewer(); }))},
 
-          {"store_image_from_viewer",
-           "Stores the viewer's current framebuffer as image.",
+          {"screenshot", "Stores the viewer's current framebuffer as image.",
            var(fun([this](const string& path) {
              // viewer.store_image(path);
              auto task = future_from_task_queue(
@@ -165,6 +164,20 @@ void application::init_interpreter_module() {
                viewer.hyper_smoothing_passes = smoothing_passes;
                viewer.compute_hyper_surface_smoothing();
              });
+             task.wait();
+           }))},
+
+          {"set_wireframe", "Turn on/off wireframe for shading.",
+           var(fun([this](bool value) {
+             auto task = future_from_task_queue(
+                 [&, this] { viewer.set_wireframe(value); });
+             task.wait();
+           }))},
+
+          {"use_face_normal", "Turn on/off face normals for shading.",
+           var(fun([this](bool value) {
+             auto task = future_from_task_queue(
+                 [&, this] { viewer.use_face_normal(value); });
              task.wait();
            }))},
       };
