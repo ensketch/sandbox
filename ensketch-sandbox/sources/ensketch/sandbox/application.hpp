@@ -3,28 +3,29 @@
 //
 #include <ensketch/sandbox/console_io.hpp>
 #include <ensketch/sandbox/frame_timer.hpp>
-#include <ensketch/sandbox/interpreter.hpp>
+#include <ensketch/sandbox/task_queue.hpp>
 #include <ensketch/sandbox/viewer.hpp>
 
 namespace ensketch::sandbox {
 
-class application {
+class application final {
+ private:
   // The application represents a singleton.
   // Hence, its constructor is private and
   // not allowed to be called from outside.
   //
-  application();
-
+  application() = default;
+  //
  public:
   // As the constructor is private, there must be a function that
   // calls it to handle the construction and handling of the application.
   // This function returns a reference to the application.
   //
   friend auto app() noexcept -> application&;
-
   //
-  ~application() noexcept;
-
+  //
+  ~application() noexcept = default;
+  //
   // The application is not allowed to be copied or moved.
   //
   application(const application&) = delete;
@@ -32,6 +33,7 @@ class application {
   application(application&&) = delete;
   application& operator=(application&&) = delete;
 
+ public:
   /// Standard Logging Functions
   ///
   void debug(const string& str) const {
@@ -60,52 +62,45 @@ class application {
   ///
   void quit();
 
-  void async_eval_chaiscript(const filesystem::path& script);
-
-  auto future_from_task_queue(auto&& f) {
-    packaged_task<void()> task{forward<decltype(f)>(f)};
-    auto result = task.get_future();
-    scoped_lock lock{task_queue_mutex};
-    task_queue.push(move(task));
-    return result;
-  }
-
-  auto path_from_lookup(const filesystem::path& path) -> filesystem::path {
-    if (path.is_absolute()) return path;
-    if (lookup_path.empty()) return path;
-    return lookup_path / path;
-  }
-
   void open_viewer(int width, int height);
   void close_viewer();
   auto async_open_viewer(int width, int height) -> future<void>;
   auto async_close_viewer() -> future<void>;
 
  private:
-  void init_interpreter_module();
+  // void init_interpreter_module();
   void process_console_input();
-  void process_task_queue();
-  void process_eval_chaiscript_task();
+  // void process_task_queue();
+  // void process_eval_chaiscript_task();
 
   void basic_open_viewer(int width, int height);
   void basic_close_viewer();
 
- private:
-  bool running = true;
+  // private:
+ public:
+  atomic<bool> running = false;
   thread::id run_thread{};
   mutex run_mutex{};
+
+  task_queue tasks{};
 
   ensketch::sandbox::console_io console{};
   ensketch::sandbox::frame_timer timer{10.0f};
   ensketch::sandbox::viewer viewer{};
 
-  ensketch::sandbox::interpreter interpreter{};
-  future<void> interpreter_task{};
-  future<void> eval_chaiscript_task{};
+ public:
+  auto path_from_lookup(const filesystem::path& path) -> filesystem::path {
+    if (path.is_absolute()) return path;
+    if (lookup_path.empty()) return path;
+    return lookup_path / path;
+  }
+  void chaiscript_eval(const string& code);
+  void chaiscript_eval(const filesystem::path& script);
 
-  mutex task_queue_mutex{};
-  queue<packaged_task<void()>> task_queue{};
-
+ private:
+  void chaiscript_run();
+  task_queue chaiscript_tasks{};
+  jthread chaiscript_thread{};
   filesystem::path lookup_path{};
 };
 

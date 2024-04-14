@@ -7,14 +7,6 @@ auto app() noexcept -> application& {
   return _app;
 }
 
-application::application() {
-  debug("Successfully constructed application.");
-}
-
-application::~application() noexcept {
-  debug("Successfully destroyed application\n");
-}
-
 void application::run() {
   {
     scoped_lock lock{run_mutex};
@@ -22,20 +14,23 @@ void application::run() {
       throw runtime_error("Failed to run application! It is already running.");
     run_thread = this_thread::get_id();
   }
-
-  interpreter_task = async(launch::async, [this] {
-    init_interpreter_module();
-    interpreter.run();
-  });
-
   running = true;
+
+  // interpreter_task = async(launch::async, [this] {
+  //   init_interpreter_module();
+  //   interpreter.run();
+  // });
+
+  chaiscript_run();
 
   while (running) {
     console.capture(format("FPS = {:6.2f}\n", timer.fps()));
 
     process_console_input();
-    process_eval_chaiscript_task();
-    process_task_queue();
+    // process_eval_chaiscript_task();
+
+    // process_task_queue();
+    tasks.process();
 
     if (viewer) {
       viewer.process_events();
@@ -48,7 +43,7 @@ void application::run() {
   }
 
   console.abort_input();
-  interpreter.quit();
+  // interpreter.quit();
 
   running = false;
   run_thread = {};
@@ -69,161 +64,11 @@ void application::process_console_input() {
     if (input.empty()) return;
     console.log("\n");
     // eval_chaiscript(input);
-    auto task = interpreter.future_from_task_queue(
-        [this, input] { interpreter.eval_chaiscript(input); });
+    // auto task = interpreter.future_from_task_queue(
+    //     [this, input] { interpreter.eval_chaiscript(input); });
+    // chaiscript_tasks.push([this, input] { chaiscript::eval(input); });
+    chaiscript_eval(input);
   }
-}
-
-void application::init_interpreter_module() {
-  using namespace chaiscript;
-
-  // Construct a static vector of all ChaiScript functions.
-  // It needs to be static as the help function will need to refer to it.
-  //
-  static vector<
-      tuple<string, string, sandbox::interpreter::chaiscript_value_type>>
-      objects{
-          {"help", "Print available functions.", var(fun([&] {
-             stringstream out{};
-             out << "Available Functions:\n";
-             for (const auto& [name, help, data] : objects)
-               out << '\t' << name << '\n' << "\t\t" << help << "\n\n";
-             app().info(out.str());
-           }))},
-
-          {"quit", "Quit the application.", var(fun([this] { quit(); }))},
-
-          {"open_viewer", "Open the viewer with an OpenGL context.",
-           var(fun(
-               [this](int width, int height) { open_viewer(width, height); }))},
-
-          {"close_viewer", "Close the viewer and OpenGL context.",
-           var(fun([this]() { close_viewer(); }))},
-
-          {"screenshot", "Stores the viewer's current framebuffer as image.",
-           var(fun([this](const string& path) {
-             // viewer.store_image(path);
-             auto task = future_from_task_queue(
-                 [this, path] { viewer.store_image_from_view(path); });
-             task.wait();
-           }))},
-
-          {"load_surface", "Load a surface mesh from file.",
-           var(fun([this](const string& path) {
-             // viewer.load_surface(path);
-             auto task = future_from_task_queue(
-                 [this, path] { viewer.load_surface(path); });
-             task.wait();
-           }))},
-
-          {"save_perspective", "Save camera perspective to given file.",
-           var(fun(
-               [this](const string& path) { viewer.save_perspective(path); }))},
-
-          {"load_perspective", "Load camera perspective from given file.",
-           var(fun([this](const string& path) {
-             auto task = future_from_task_queue(
-                 [this, path] { viewer.load_perspective(path); });
-             task.wait();
-           }))},
-
-          {"save_surface_vertex_curve",
-           "Save current surface vertex curve to given file.",
-           var(fun([this](const string& path) {
-             viewer.save_surface_vertex_curve(path);
-           }))},
-
-          {"load_surface_vertex_curve",
-           "Load surface vertex curve from given file.",
-           var(fun([this](const string& path) {
-             auto task = future_from_task_queue(
-                 [this, path] { viewer.load_surface_vertex_curve(path); });
-             task.wait();
-           }))},
-
-          {"smooth_surface_vertex_curve",
-           "Smooth the current surface vertex curve by using the geodetic "
-           "smoothing approach.",
-           var(fun([this](double tolerance, int laplace_iterations,
-                          double laplace_relaxation) {
-             auto task = future_from_task_queue([&, this] {
-               viewer.tolerance = tolerance;
-               viewer.laplace_iterations = laplace_iterations;
-               viewer.laplace_relaxation = laplace_relaxation;
-               viewer.compute_smooth_surface_mesh_curve();
-             });
-             task.wait();
-           }))},
-
-          {"hyper_smooth_surface_vertex_curve",
-           "Smooth the current surface vertex curve by using the hyper surface "
-           "smoothing approach.",
-           var(fun([this](double lambda, int smoothing_passes) {
-             auto task = future_from_task_queue([&, this] {
-               viewer.hyper_lambda = lambda;
-               viewer.hyper_smoothing_passes = smoothing_passes;
-               viewer.compute_hyper_surface_smoothing();
-             });
-             task.wait();
-           }))},
-
-          {"set_wireframe", "Turn on/off wireframe for shading.",
-           var(fun([this](bool value) {
-             auto task = future_from_task_queue(
-                 [&, this] { viewer.set_wireframe(value); });
-             task.wait();
-           }))},
-
-          {"use_face_normal", "Turn on/off face normals for shading.",
-           var(fun([this](bool value) {
-             auto task = future_from_task_queue(
-                 [&, this] { viewer.use_face_normal(value); });
-             task.wait();
-           }))},
-      };
-
-  // Add all module functions to the current ChaiScript thread.
-  //
-  for (const auto& [name, help, data] : objects) interpreter.add(data, name);
-}
-
-void application::async_eval_chaiscript(const filesystem::path& path) {
-  if (eval_chaiscript_task.valid()) {
-    error(format(
-        "Failed to start asynchronous evaluation of ChaiScript file.\n Another "
-        "file is currently evaluated.\nfile='{}'",
-        path.string()));
-    return;
-  }
-
-  eval_chaiscript_task = interpreter.future_from_task_queue([this, path] {
-    const auto abs_path = absolute(path);
-    lookup_path = abs_path.parent_path();
-    interpreter.eval_chaiscript(abs_path);
-    lookup_path = filesystem::path{};
-  });
-
-  info(
-      format("Started asynchronous evaluation of ChaiScript file.\nfile = '{}'",
-             path.string()));
-}
-
-void application::process_eval_chaiscript_task() {
-  if (!eval_chaiscript_task.valid()) return;
-  if (future_status::ready != eval_chaiscript_task.wait_for(0s)) return;
-  eval_chaiscript_task = {};
-  info("Sucessfully finished asynchronous evaluation of ChaiScript file.");
-}
-
-void application::process_task_queue() {
-  packaged_task<void()> task{};
-  {
-    scoped_lock lock{task_queue_mutex};
-    if (task_queue.empty()) return;
-    task = move(task_queue.front());
-    task_queue.pop();
-  }
-  task();
 }
 
 void application::basic_open_viewer(int width, int height) {
@@ -233,7 +78,7 @@ void application::basic_open_viewer(int width, int height) {
 }
 
 auto application::async_open_viewer(int width, int height) -> future<void> {
-  return future_from_task_queue(
+  return tasks.result_from_push(
       [this, width, height] { basic_open_viewer(width, height); });
 }
 
@@ -252,7 +97,7 @@ void application::basic_close_viewer() {
 }
 
 auto application::async_close_viewer() -> future<void> {
-  return future_from_task_queue([this] { basic_close_viewer(); });
+  return tasks.result_from_push([this] { basic_close_viewer(); });
 }
 
 void application::close_viewer() {
