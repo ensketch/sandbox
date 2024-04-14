@@ -7,19 +7,23 @@ auto app() noexcept -> application& {
   return _app;
 }
 
+auto application::main_thread() const noexcept -> thread::id {
+  // This is read-only access and, thus,
+  // doesn't need any thread synchronization.
+  //
+  return main_tid;
+}
+
 void application::run() {
+  // If 'run' has not been called so far
+  // then set the current thread id as the main thread.
   {
+    // Can probably be done lock-free by using the 'running' variable.
     scoped_lock lock{run_mutex};
-    if (run_thread != thread::id{})
-      throw runtime_error("Failed to run application! It is already running.");
-    run_thread = this_thread::get_id();
+    if (main_tid != thread::id{}) return;
+    main_tid = this_thread::get_id();
   }
   running = true;
-
-  // interpreter_task = async(launch::async, [this] {
-  //   init_interpreter_module();
-  //   interpreter.run();
-  // });
 
   chaiscript_run();
 
@@ -27,9 +31,7 @@ void application::run() {
     console.capture(format("FPS = {:6.2f}\n", timer.fps()));
 
     process_console_input();
-    // process_eval_chaiscript_task();
 
-    // process_task_queue();
     tasks.process();
 
     if (viewer) {
@@ -43,10 +45,9 @@ void application::run() {
   }
 
   console.abort_input();
-  // interpreter.quit();
 
   running = false;
-  run_thread = {};
+  main_tid = {};
 }
 
 void application::quit() {
@@ -63,10 +64,6 @@ void application::process_console_input() {
     string input = tmp;
     if (input.empty()) return;
     console.log("\n");
-    // eval_chaiscript(input);
-    // auto task = interpreter.future_from_task_queue(
-    //     [this, input] { interpreter.eval_chaiscript(input); });
-    // chaiscript_tasks.push([this, input] { chaiscript::eval(input); });
     chaiscript_eval(input);
   }
 }
@@ -83,7 +80,7 @@ auto application::async_open_viewer(int width, int height) -> future<void> {
 }
 
 void application::open_viewer(int width, int height) {
-  if (this_thread::get_id() == running_thread()) {
+  if (this_thread::get_id() == main_thread()) {
     basic_open_viewer(width, height);
     return;
   }
@@ -101,7 +98,7 @@ auto application::async_close_viewer() -> future<void> {
 }
 
 void application::close_viewer() {
-  if (this_thread::get_id() == running_thread()) {
+  if (this_thread::get_id() == main_thread()) {
     basic_close_viewer();
     return;
   }

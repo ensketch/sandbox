@@ -49,17 +49,20 @@ class application final {
     console.log(format("ERROR: {}\n\n", str));
   }
 
-  /// This function runs the main event and update loop of the application.
-  /// As of this it blocks further execution of subsequent statements.
-  ///
+  // This functions returns the thread id
+  // on which 'run' has been called.
+  // If the application is not running, the value
+  // 'thread::id{}' indicates an invalid thread
+  //
+  auto main_thread() const noexcept -> thread::id;
+
+  // This function runs the main event and update loop of the application.
+  // As of this it blocks further execution of subsequent statements.
+  //
   void run();
 
-  /// This functions returns the thread id on which 'run' has been called.
-  ///
-  auto running_thread() const noexcept -> thread::id { return run_thread; }
-
-  ///
-  ///
+  //
+  //
   void quit();
 
   void open_viewer(int width, int height);
@@ -76,12 +79,12 @@ class application final {
   void basic_open_viewer(int width, int height);
   void basic_close_viewer();
 
-  // private:
- public:
+ private:
   atomic<bool> running = false;
-  thread::id run_thread{};
+  thread::id main_tid{};
   mutex run_mutex{};
 
+ public:
   task_queue tasks{};
 
   ensketch::sandbox::console_io console{};
