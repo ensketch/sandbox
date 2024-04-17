@@ -20,6 +20,7 @@ depends: * bpkg >= 0.16.0
 
 depends: libensketch-xstd
 
+depends: fmt ^10.2.1
 depends: libreplxx ^0.0.4
 depends: libchaiscript ^6.1.0
 depends: libsfml-graphics ^2.5.1

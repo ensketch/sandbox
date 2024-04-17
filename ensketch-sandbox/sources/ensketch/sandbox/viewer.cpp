@@ -2,6 +2,8 @@
 //
 #include <ensketch/sandbox/application.hpp>
 #include <ensketch/sandbox/hyper_surface_smoothing.hpp>
+#include <ensketch/sandbox/log.hpp>
+#include <ensketch/sandbox/main.hpp>
 #include <ensketch/sandbox/ray_tracer.hpp>
 //
 #include <ensketch/opengl/shader_object.hpp>
@@ -26,7 +28,7 @@ void /*APIENTRY*/ glDebugOutput(GLenum source,
                                 GLsizei length,
                                 const char* message,
                                 const void* userParam) {
-  ensketch::sandbox::app().info(message);
+  ensketch::sandbox::log::info(message);
 }
 }  // namespace
 
@@ -327,19 +329,19 @@ void main() {
 )##"};
 
   if (!vs) {
-    app().error(vs.info_log());
+    log::error(vs.info_log());
     app().close_viewer();
     return;
   }
 
   if (!gs) {
-    app().error(gs.info_log());
+    log::error(gs.info_log());
     app().close_viewer();
     return;
   }
 
   if (!fs) {
-    app().error(fs.info_log());
+    log::error(fs.info_log());
     app().close_viewer();
     return;
   }
@@ -350,7 +352,7 @@ void main() {
   device->shader.link();
 
   if (!device->shader.linked()) {
-    app().error(device->shader.info_log());
+    log::error(device->shader.info_log());
     app().close_viewer();
     return;
   }
@@ -527,19 +529,19 @@ void main() {
 )##"};
 
   if (!level_set_vs) {
-    app().error(level_set_vs.info_log());
+    log::error(level_set_vs.info_log());
     app().close_viewer();
     return;
   }
 
   if (!level_set_gs) {
-    app().error(level_set_gs.info_log());
+    log::error(level_set_gs.info_log());
     app().close_viewer();
     return;
   }
 
   if (!level_set_fs) {
-    app().error(level_set_fs.info_log());
+    log::error(level_set_fs.info_log());
     app().close_viewer();
     return;
   }
@@ -550,7 +552,7 @@ void main() {
   device->level_set_shader.link();
 
   if (!device->level_set_shader.linked()) {
-    app().error(device->level_set_shader.info_log());
+    log::error(device->level_set_shader.info_log());
     app().close_viewer();
     return;
   }
@@ -584,13 +586,13 @@ void main() {
 )##"};
 
   if (!point_vs) {
-    app().error(point_vs.info_log());
+    log::error(point_vs.info_log());
     app().close_viewer();
     return;
   }
 
   if (!point_fs) {
-    app().error(point_fs.info_log());
+    log::error(point_fs.info_log());
     app().close_viewer();
     return;
   }
@@ -600,7 +602,7 @@ void main() {
   device->point_shader.link();
 
   if (!device->point_shader.linked()) {
-    app().error(device->point_shader.info_log());
+    log::error(device->point_shader.info_log());
     app().close_viewer();
     return;
   }
@@ -767,19 +769,19 @@ void main() {
 )##"};
 
   if (!surface_vertex_curve_vs) {
-    app().error(surface_vertex_curve_vs.info_log());
+    log::error(surface_vertex_curve_vs.info_log());
     app().close_viewer();
     return;
   }
 
   if (!surface_vertex_curve_gs) {
-    app().error(surface_vertex_curve_gs.info_log());
+    log::error(surface_vertex_curve_gs.info_log());
     app().close_viewer();
     return;
   }
 
   if (!surface_vertex_curve_fs) {
-    app().error(surface_vertex_curve_fs.info_log());
+    log::error(surface_vertex_curve_fs.info_log());
     app().close_viewer();
     return;
   }
@@ -790,7 +792,7 @@ void main() {
   device->surface_vertex_curve_shader.link();
 
   if (!device->surface_vertex_curve_shader.linked()) {
-    app().error(device->surface_vertex_curve_shader.info_log());
+    log::error(device->surface_vertex_curve_shader.info_log());
     app().close_viewer();
     return;
   }
@@ -831,13 +833,13 @@ void main() {
 )##"};
 
   if (!mouse_curve_vs) {
-    app().error(mouse_curve_vs.info_log());
+    log::error(mouse_curve_vs.info_log());
     app().close_viewer();
     return;
   }
 
   if (!mouse_curve_fs) {
-    app().error(mouse_curve_fs.info_log());
+    log::error(mouse_curve_fs.info_log());
     app().close_viewer();
     return;
   }
@@ -847,7 +849,7 @@ void main() {
   device->mouse_curve_shader.link();
 
   if (!device->mouse_curve_shader.linked()) {
-    app().error(device->mouse_curve_shader.info_log());
+    log::error(device->mouse_curve_shader.info_log());
     app().close_viewer();
     return;
   }
@@ -877,7 +879,7 @@ void viewer::process_events() {
   sf::Event event;
   while (window.pollEvent(event)) {
     if (event.type == sf::Event::Closed)
-      app().quit();
+      quit();
     else if (event.type == sf::Event::Resized)
       resize(event.size.width, event.size.height);
     else if (event.type == sf::Event::MouseWheelScrolled)
@@ -894,7 +896,7 @@ void viewer::process_events() {
     } else if (event.type == sf::Event::KeyPressed) {
       switch (event.key.code) {
         case sf::Keyboard::Escape:
-          app().quit();
+          quit();
           break;
         case sf::Keyboard::Num1:
           set_y_as_up();
@@ -1142,8 +1144,8 @@ void viewer::store_image() {
   stbi_write_png(store_image_path.c_str(), width, height, nrChannels,
                  buffer.data(), stride);
 
-  app().info(format("Successfully stored view as image.\nfile = '{}'.",
-                    store_image_path.string()));
+  log::info(format("Successfully stored view as image.\nfile = '{}'.",
+                   store_image_path.string()));
 
   store_image_path.clear();
   store_image_frames = 0;
@@ -1167,16 +1169,15 @@ void viewer::store_image_from_view(const filesystem::path& path) {
   stbi_flip_vertically_on_write(true);
   stbi_write_png(p.c_str(), width, height, nrChannels, buffer.data(), stride);
 
-  app().info(format("Successfully stored framebuffer as image.\nfile = '{}'.",
-                    p.string()));
+  log::info(format("Successfully stored framebuffer as image.\nfile = '{}'.",
+                   p.string()));
 }
 
 void viewer::save_perspective(const filesystem::path& path) {
   const auto p = app().path_from_lookup(path);
   ofstream file{p};
   if (!file) {
-    app().error(
-        format("Failed to save view to file.\nfile = '{}'", p.string()));
+    log::error(format("Failed to save view to file.\nfile = '{}'", p.string()));
     return;
   }
   file << format("{} {} {}\n", origin.x, origin.y, origin.z)
@@ -1185,7 +1186,7 @@ void viewer::save_perspective(const filesystem::path& path) {
        << format("{} {} {}\n", front.x, front.y, front.z)
        << format("{} {} {}\n", radius, altitude, azimuth);
 
-  app().info(
+  log::info(
       format("Successfully saved view to file.\nfile = '{}'", p.string()));
 }
 
@@ -1193,7 +1194,7 @@ void viewer::load_perspective(const filesystem::path& path) {
   const auto p = app().path_from_lookup(path);
   ifstream file{p};
   if (!file) {
-    app().error(
+    log::error(
         format("Failed to load view from file.\nfile = '{}'", p.string()));
     return;
   }
@@ -1204,7 +1205,7 @@ void viewer::load_perspective(const filesystem::path& path) {
       >> front.x >> front.y >> front.z     //
       >> radius >> altitude >> azimuth;
 
-  app().info(
+  log::info(
       format("Successfully loaded view from file.\nfile = '{}'", p.string()));
 
   view_should_update = true;
@@ -1273,20 +1274,19 @@ void viewer::load_surface(const filesystem::path& path) {
 
     surface_should_update = true;
 
-    app().info(format("Sucessfully loaded surface mesh from file.\nfile = '{}'",
-                      p.string()));
+    log::info(format("Sucessfully loaded surface mesh from file.\nfile = '{}'",
+                     p.string()));
 
   } catch (exception& e) {
-    app().error(
-        format("Failed to load surface mesh from file.\n{}\nfile = '{}'",
-               e.what(), p.string()));
+    log::error(format("Failed to load surface mesh from file.\n{}\nfile = '{}'",
+                      e.what(), p.string()));
     return;
   }
 }
 
 void viewer::async_load_surface(const filesystem::path& path) {
   if (surface_load_task.valid()) {
-    app().error(format(
+    log::error(format(
         "Failed to start asynchronous loading of surface mesh from file.\nIt "
         "seems another surface mesh is already loading.\n file = '{}'",
         path.string()));
@@ -1294,7 +1294,7 @@ void viewer::async_load_surface(const filesystem::path& path) {
   }
   surface_load_task =
       async(launch::async, [this, &path] { load_surface(path); });
-  app().info(format(
+  log::info(format(
       "Started asynchronous loading of surface mesh from file.\nfile = '{}'",
       path.string()));
 }
@@ -1306,7 +1306,7 @@ void viewer::handle_surface_load_task() {
     return;
   }
 
-  app().info("Sucessfully finished asynchronous loading of surface mesh.");
+  log::info("Sucessfully finished asynchronous loading of surface mesh.");
 
   surface_load_task = {};
 }
@@ -1324,7 +1324,7 @@ void viewer::fit_view_to_surface() {
 }
 
 void viewer::print_surface_info() {
-  app().info(format(  //
+  log::info(format(  //
       "load time = {:6.3f}s\n"
       "process time = {:6.3f}s\n"
       "vertices = {}\n"
@@ -1368,7 +1368,7 @@ auto viewer::surface_vertex_from(const mouse_position& m) noexcept
 void viewer::select_surface_vertex_from_mouse(float x, float y) noexcept {
   selected_vertex = surface_vertex_from(mouse_position{x, y});
   if (selected_vertex == polyhedral_surface::invalid) return;
-  app().info(format("Vertex ID = {}", selected_vertex));
+  log::info(format("Vertex ID = {}", selected_vertex));
   if (device)
     device->selected_vertices.allocate_and_initialize(selected_vertex);
 }
@@ -1773,7 +1773,7 @@ void viewer::update_heat() {
     max_distance = std::max(max_distance, heat[i]);
 
   // cout << "max distance = " << max_distance << endl;
-  // app().info(
+  // log::info(
   //     format("max distance from surface vertex curve = {}", max_distance));
 
   for (auto i : line_vids) potential[i] = 0;
@@ -1838,7 +1838,7 @@ void viewer::compute_smooth_surface_mesh_curve() {
 
   if (line_vids.size() <= 1) return;
 
-  app().info(
+  log::info(
       format("heat time scale = {}\n"
              "avg edge length = {}\n"
              "tolerance = {}\n"
@@ -1954,7 +1954,7 @@ void viewer::compute_smooth_surface_mesh_curve() {
   //      << "tolerance = " << tolerance << '\n'
   //      << endl;
 
-  app().info(
+  log::info(
       format("time = {} s\n"
              "heat time = {} s\n"
              "geodesic time = {} s\n"
@@ -1969,7 +1969,7 @@ void viewer::compute_smooth_surface_mesh_curve() {
 
   // cout << "smoothed line vertices = " << device_line.vertices.size() << endl;
 
-  app().info(
+  log::info(
       format("surface vertex curve vertices = {}\n"
              "surface mesh curve vertices = {}\n",
              surface_vertex_curve.size(), surface_mesh_curve.size()));
@@ -1980,9 +1980,9 @@ void viewer::compute_surface_bipartition_from_surface_vertex_curve() {
     const auto face_mask = bipartition_from(surface, surface_vertex_curve,
                                             surface_vertex_curve_closed);
     device->ssbo.allocate_and_initialize(face_mask);
-    app().info("Surface bi-partition computed.");
+    log::info("Surface bi-partition computed.");
   } catch (runtime_error& e) {
-    app().error(e.what());
+    log::error(e.what());
     reset_surface_bipartition();
   }
 }
@@ -2036,17 +2036,17 @@ void viewer::compute_hyper_surface_smoothing() try {
 
   device->scalar_field.allocate_and_initialize(field);
 
-  app().info(format("hyper time = {}", duration(end - start).count()));
+  log::info(format("hyper time = {}", duration(end - start).count()));
 
 } catch (runtime_error& e) {
-  app().error(e.what());
+  log::error(e.what());
 }
 
 void viewer::save_surface_vertex_curve(const filesystem::path& path) {
   const auto p = app().path_from_lookup(path);
   ofstream file{p};
   if (!file) {
-    app().error(
+    log::error(
         format("Failed to save surface vertex curve to file.\nfile = '{}'",
                p.string()));
     return;
@@ -2055,7 +2055,7 @@ void viewer::save_surface_vertex_curve(const filesystem::path& path) {
   for (auto vid : surface_vertex_curve) file << vid << '\n';
   if (surface_vertex_curve_closed) file << surface_vertex_curve.front() << '\n';
 
-  app().info(
+  log::info(
       format("Successfully saved surface vertex curve to file.\nfile = '{}'",
              p.string()));
 }
@@ -2064,7 +2064,7 @@ void viewer::load_surface_vertex_curve(const filesystem::path& path) {
   const auto p = app().path_from_lookup(path);
   ifstream file{p};
   if (!file) {
-    app().error(
+    log::error(
         format("Failed to load surface vertex curve from file.\nfile = '{}'",
                p.string()));
     return;
@@ -2085,7 +2085,7 @@ void viewer::load_surface_vertex_curve(const filesystem::path& path) {
     surface_vertex_curve_closed = true;
   }
 
-  app().info(
+  log::info(
       format("Successfully loaded surface vertex curve from file.\nfile = '{}'",
              p.string()));
 
