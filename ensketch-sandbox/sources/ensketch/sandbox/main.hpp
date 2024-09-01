@@ -38,6 +38,11 @@ bool process_chaiscript_tasks();
 
 void add_chaiscript_functions();
 
+void eval_lua(const string& code);
+void eval_lua(const filesystem::path& script);
+bool process_lua_tasks();
+void add_lua_functions();
+
 auto main_viewer() noexcept -> viewer&;
 
 void open_viewer(int width, int height);

@@ -29,7 +29,8 @@ int main(int argc, char* argv[]) {
   using namespace ensketch::sandbox;
   set_main_thread();
 
-  for (int i = 1; i < argc; ++i) eval_chaiscript(filesystem::path(argv[i]));
+  // for (int i = 1; i < argc; ++i) eval_chaiscript(filesystem::path(argv[i]));
+  for (int i = 1; i < argc; ++i) eval_lua(filesystem::path(argv[i]));
 
   jthread console_thread{[] {
     console::init();
@@ -41,9 +42,16 @@ int main(int argc, char* argv[]) {
   jthread chaiscript_thread{[] {
     add_chaiscript_functions();
     while (not_done()) {
-      while (not_done() && process_chaiscript_tasks())
-        ;
+      while (not_done() && process_chaiscript_tasks());
       // this_thread::yield();
+      this_thread::sleep_for(100ms);
+    }
+  }};
+
+  jthread lua_thread{[] {
+    add_lua_functions();
+    while (not_done()) {
+      while (not_done() && process_lua_tasks());
       this_thread::sleep_for(100ms);
     }
   }};
@@ -104,7 +112,8 @@ static void process_console_input() {
   if (input.empty()) return;
   console::log("\n");
   // info(input);
-  eval_chaiscript(input);
+  // eval_chaiscript(input);
+  eval_lua(input);
 }
 
 static void run_main_thread() {

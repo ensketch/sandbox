@@ -7,6 +7,7 @@ import libs += libchaiscript%lib{chaiscript}
 import libs += libgeometrycentral%lib{geometrycentral}
 import libs += libigl-core%liba{igl-core}
 
+import libs += sol2%lib{sol2}
 
 import libs += glbinding%lib{glbinding}
 import libs += glm%lib{glm}

@@ -30,6 +30,8 @@ depends: libgeometrycentral
 depends: libigl-core ^2.5.0-
 depends: stb_image_write ^1.16.0
 
+depends: sol2
+
 depends: libcino
 
 depends: assimp ; System Dependency
