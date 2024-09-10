@@ -1,18 +1,18 @@
-#pragma once
-#include <ensketch/sandbox/utility.hpp>
+// #pragma once
+// #include <ensketch/sandbox/utility.hpp>
 
-namespace ensketch::sandbox::console {
+// namespace ensketch::sandbox::console {
 
-void init();
+// void init();
 
-auto input() -> czstring;
+// auto input() -> czstring;
 
-void abort_input();
+// void abort_input();
 
-void capture(const string& str);
+// void capture(const string& str);
 
-void update();
+// void update();
 
-void log(const string& str);
+// void log(const string& str);
 
-}  // namespace ensketch::sandbox::console
+// }  // namespace ensketch::sandbox::console

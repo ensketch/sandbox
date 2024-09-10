@@ -24,13 +24,19 @@
 
 namespace ensketch::sandbox {
 
-using namespace std;
+// using namespace std;
+namespace filesystem = std::filesystem;
+using std::optional;
+using std::scoped_lock;
+using std::string;
+using std::string_view;
+
 using namespace xstd;
 
 using namespace gl;
 using namespace glm;
 
-using clock = chrono::high_resolution_clock;
-using duration = chrono::duration<float32>;
+using clock = std::chrono::high_resolution_clock;
+using duration = std::chrono::duration<float32>;
 
 }  // namespace ensketch::sandbox

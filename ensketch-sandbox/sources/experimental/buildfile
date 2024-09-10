@@ -1,0 +1,12 @@
+import xstd = libensketch-xstd%lib{ensketch-xstd}
+import replxx = libreplxx%lib{replxx}
+import sol = sol2%lib{sol2}
+exe{experiment}: {hxx ixx txx cxx}{**} $xstd $replxx $sol
+{
+  test = false
+}
+
+out_pfx = [dir_path] $out_root/sources/
+src_pfx = [dir_path] $src_root/sources/
+
+cxx.poptions =+ "-I$out_pfx" "-I$src_pfx"

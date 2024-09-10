@@ -1,12 +1,12 @@
 #include <ensketch/sandbox/log.hpp>
 //
-#include <ensketch/sandbox/console.hpp>
+#include <ensketch/luarepl/luarepl.hpp>
 
 namespace ensketch::sandbox::log {
 
 static void log(auto&& prefix, auto&& str, source_location location) {
   // console::log(str);
-  console::log(fmt::format("{}{}\n\n\t{}\n\n",
+  luarepl::log(fmt::format("{}{}\n\n\t{}\n\n",
                            forward<decltype(prefix)>(prefix),
                            string_from(location), forward<decltype(str)>(str)));
 }

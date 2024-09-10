@@ -25,7 +25,7 @@ void application::run() {
   }
   running = true;
 
-  chaiscript_run();
+  // chaiscript_run();
 
   while (running) {
     console.capture(format("FPS = {:6.2f}\n", timer.fps()));
@@ -64,7 +64,7 @@ void application::process_console_input() {
     string input = tmp;
     if (input.empty()) return;
     console.log("\n");
-    chaiscript_eval(input);
+    // chaiscript_eval(input);
   }
 }
 
@@ -75,7 +75,7 @@ void application::basic_open_viewer(int width, int height) {
 }
 
 auto application::async_open_viewer(int width, int height) -> future<void> {
-  return tasks.result_from_push(
+  return tasks.push(
       [this, width, height] { basic_open_viewer(width, height); });
 }
 
@@ -94,7 +94,7 @@ void application::basic_close_viewer() {
 }
 
 auto application::async_close_viewer() -> future<void> {
-  return tasks.result_from_push([this] { basic_close_viewer(); });
+  return tasks.push([this] { basic_close_viewer(); });
 }
 
 void application::close_viewer() {

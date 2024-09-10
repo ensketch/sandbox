@@ -22,15 +22,10 @@ import libs += stb_image_write%lib{stb_image_write}
 exe{ensketch-sandbox}: {hxx ixx txx cxx}{**} $libs
 {
   test = true
-  test.arguments = $src_base/config.chai
+#   test.arguments = $src_base/config.chai
 }
-
-# exe{ensketch-sandbox}: file{config.chai}: test.stdin = true
 
 out_pfx = [dir_path] $out_root/sources/
 src_pfx = [dir_path] $src_root/sources/
 
 cxx.poptions =+ "-I$out_pfx" "-I$src_pfx"
-
-if ($cxx.target.system != 'win32-msvc')
-  cxx.libs += -pthread

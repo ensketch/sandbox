@@ -1,7 +1,5 @@
 #pragma once
-#include <ensketch/sandbox/utility.hpp>
-//
-#include <ensketch/sandbox/task_queue.hpp>
+#include <ensketch/sandbox/defaults.hpp>
 #include <ensketch/sandbox/viewer.hpp>
 
 namespace ensketch::sandbox {
@@ -30,17 +28,6 @@ auto main_task_queue() -> task_queue&;
 //   return lookup_path / path;
 // }
 
-//
-//
-void eval_chaiscript(const string& code);
-void eval_chaiscript(const filesystem::path& script);
-bool process_chaiscript_tasks();
-
-void add_chaiscript_functions();
-
-void eval_lua(const string& code);
-void eval_lua(const filesystem::path& script);
-bool process_lua_tasks();
 void add_lua_functions();
 
 auto main_viewer() noexcept -> viewer&;

@@ -3,7 +3,7 @@
 //
 #include <ensketch/sandbox/console_io.hpp>
 #include <ensketch/sandbox/frame_timer.hpp>
-#include <ensketch/sandbox/task_queue.hpp>
+// #include <ensketch/sandbox/task_queue.hpp>
 #include <ensketch/sandbox/viewer.hpp>
 
 namespace ensketch::sandbox {
@@ -97,13 +97,13 @@ class application final {
     if (lookup_path.empty()) return path;
     return lookup_path / path;
   }
-  void chaiscript_eval(const string& code);
-  void chaiscript_eval(const filesystem::path& script);
+  // void chaiscript_eval(const string& code);
+  // void chaiscript_eval(const filesystem::path& script);
 
  private:
-  void chaiscript_run();
-  task_queue chaiscript_tasks{};
-  jthread chaiscript_thread{};
+  // void chaiscript_run();
+  // task_queue chaiscript_tasks{};
+  // jthread chaiscript_thread{};
   filesystem::path lookup_path{};
 };
 
