@@ -24,6 +24,8 @@ std::atomic<bool> is_done{false};
 std::atomic<bool> is_interrupted{false};
 std::atomic<bool> is_evaluating{false};
 repl_state repl{};
+std::mutex prompt_mutex{};
+std::string prompt_str{};
 task_queue tasks{};
 std::chrono::time_point<std::chrono::high_resolution_clock> eval_start{};
 }  // namespace
@@ -64,7 +66,7 @@ static void process_input(czstring zstr) {
 /// The function also handles the prompt and prompt animations.
 ///
 static void process_repl() {
-  auto task = async([] { return repl.input("luarepl> "); });
+  auto task = async([] { return repl.input(prompt()); });
   size_t i = 0;
   const auto start = clock::now();
   while (task.wait_for(10ms) != std::future_status::ready) {
@@ -184,8 +186,15 @@ static void init_repl() {
   repl.set_highlighter_callback(highlighter);
 }
 
+auto prompt() -> std::string {
+  std::scoped_lock lock{prompt_mutex};
+  return prompt_str;
+}
+
 void set_prompt(std::string_view str) {
-  repl.set_prompt(std::string{str});
+  std::scoped_lock lock{prompt_mutex};
+  prompt_str = str;
+  repl.set_prompt(prompt_str);
 }
 
 void log(czstring str) {

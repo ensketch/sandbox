@@ -11,6 +11,10 @@ namespace ensketch::luarepl {
 ///
 void set_done_and_quit(auto&& is_done, auto&& shall_quit);
 
+/// Receive the current prompt as string in a thread-safe manner.
+///
+auto prompt() -> std::string;
+
 /// Asynchronously set the prompt of the REPL.
 ///
 void set_prompt(std::string_view str);
