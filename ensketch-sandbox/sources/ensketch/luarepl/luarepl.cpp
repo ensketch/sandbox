@@ -1,8 +1,13 @@
 #include "luarepl.hpp"
 //
 #include "lexer.hpp"
+#include "spinners.hpp"
 //
 #include <replxx.hxx>
+//
+#include <fmt/color.h>
+#include <fmt/format.h>
+#include <fmt/ostream.h>
 
 namespace ensketch::luarepl {
 
@@ -61,29 +66,36 @@ static void process_input(czstring zstr) {
 static void process_repl() {
   auto task = async([] { return repl.input("luarepl> "); });
   size_t i = 0;
-  // static char const PROMPT_STATES[] = "-\\|/";
-  // static czstring PROMPT_STATES[] = {"⣾", "⣽", "⣻", "⢿", "⡿", "⣟", "⣯", "⣷"};
-  // static czstring PROMPT_STATES[] = {"[    ]", "[=   ]", "[==  ]", "[=== ]",
-  //                                    "[====]", "[ ===]", "[  ==]", "[   =]",
-  //                                    "[    ]", "[   =]", "[  ==]", "[ ===]",
-  //                                    "[====]", "[=== ]", "[==  ]", "[=   ]"};
-  // static czstring PROMPT_STATES[] = {
-  //     "⠁", "⠂", "⠄", "⡀", "⡈", "⡐", "⡠", "⣀", "⣁", "⣂", "⣄", "⣌",
-  //     "⣔", "⣤", "⣥", "⣦", "⣮", "⣶", "⣷", "⣿", "⡿", "⠿", "⢟", "⠟",
-  //     "⡛", "⠛", "⠫", "⢋", "⠋", "⠍", "⡉", "⠉", "⠑", "⠡", "⢁"};
-  static czstring PROMPT_STATES[] = {
-      "⢀⠀", "⡀⠀", "⠄⠀", "⢂⠀", "⡂⠀", "⠅⠀", "⢃⠀", "⡃⠀", "⠍⠀", "⢋⠀", "⡋⠀", "⠍⠁",
-      "⢋⠁", "⡋⠁", "⠍⠉", "⠋⠉", "⠋⠉", "⠉⠙", "⠉⠙", "⠉⠩", "⠈⢙", "⠈⡙", "⢈⠩", "⡀⢙",
-      "⠄⡙", "⢂⠩", "⡂⢘", "⠅⡘", "⢃⠨", "⡃⢐", "⠍⡐", "⢋⠠", "⡋⢀", "⠍⡁", "⢋⠁", "⡋⠁",
-      "⠍⠉", "⠋⠉", "⠋⠉", "⠉⠙", "⠉⠙", "⠉⠩", "⠈⢙", "⠈⡙", "⠈⠩", "⠀⢙", "⠀⡙", "⠀⠩",
-      "⠀⢘", "⠀⡘", "⠀⠨", "⠀⢐", "⠀⡐", "⠀⠠", "⠀⢀", "⠀⡀"};
+  const auto start = clock::now();
   while (task.wait_for(10ms) != std::future_status::ready) {
-    if (is_evaluating)
-      repl.set_prompt(std::format(
-          "luarepl {} > ",
-          PROMPT_STATES[i++ % sizeof(PROMPT_STATES) / sizeof(czstring)]));
-    else
-      repl.set_prompt("luarepl> ");
+    {
+      const auto time = is_evaluating ? clock::now() - start : 0ms;
+      const auto prompt_str = fmt::format(fmt::bg(fmt::color::gray), "せん {}",
+                                          animation(dot_spinner, time));
+      const auto prompt = fmt::format(
+          "\n{}{}{}{}{}{}{}\n{} ", fmt::format(fmt::fg(fmt::color::gray), "🭅"),
+          fmt::format(fmt::fg(fmt::color::white) | fmt::bg(fmt::color::gray),
+                      "{}", prompt_str),
+          fmt::format(fmt::fg(fmt::color::gray) | fmt::bg(fmt::color::dim_gray),
+                      "🭡"),
+          fmt::format(
+              fmt::fg(fmt::color::white) | fmt::bg(fmt::color::dim_gray),
+              " 🯶🯰 FPS "),
+          fmt::format(
+              fmt::fg(fmt::color::dim_gray) | fmt::bg(fmt::color::dark_gray),
+              "🭡"),
+          fmt::format(
+              fmt::fg(fmt::color::black) | fmt::bg(fmt::color::dark_gray),
+              " {} ", std::filesystem::current_path().string()),
+          fmt::format(fmt::fg(fmt::color::dark_gray), "🭡"),
+          fmt::format(fmt::fg(fmt::color::gray), "🭡"));
+      repl.set_prompt(prompt);
+    }
+    // if (is_evaluating)
+    //   repl.set_prompt(std::format(
+    //       "せん {} ╱ ", animation(dot_spinner, clock::now() - start)));
+    // else
+    //   repl.set_prompt(std::format("せん ╱ ", animation(dot_spinner, 0ms)));
 
     if (not done()) continue;
     abort_input();
@@ -159,7 +171,13 @@ static void init_repl() {
   repl.bind_key_internal(KEY::control('D'), "send_eof");
   repl.bind_key_internal(KEY::control('C'), "abort_line");
   repl.bind_key(KEY::ESCAPE, [](char32_t code) { return ACTION_RESULT::BAIL; });
+
+  {
+    std::ifstream history{"history.txt"};
+    repl.history_load(history);
+  }
   repl.set_max_history_size(128);
+
   repl.set_highlighter_callback(highlighter);
 }
 
@@ -182,6 +200,10 @@ void run() {
     }
   });
   while (not done()) process_repl();
+  {
+    std::ofstream history{"history.txt"};
+    repl.history_save(history);
+  }
 }
 
 auto eval_file(const std::filesystem::path& path)
