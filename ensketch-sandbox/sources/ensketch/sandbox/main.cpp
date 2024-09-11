@@ -76,44 +76,13 @@ int main(int argc, char* argv[]) {
 
   sandbox::set_main_thread();
 
-  // for (int i = 1; i < argc; ++i) eval_chaiscript(filesystem::path(argv[i]));
-  // for (int i = 1; i < argc; ++i) eval_lua(filesystem::path(argv[i]));
-
   luarepl::set_done_and_quit([] { return !sandbox::not_done(); },
                              [] { sandbox::quit(); });
-  // luarepl::set_function("quit", [] { sandbox::quit(); });
-  // luarepl::set_function("print", [](czstring str) { luarepl::log(str); });
+  sandbox::add_lua_functions();
 
-  luarepl::set_function("open_viewer", [](int width, int height) {
-    sandbox::open_viewer(width, height);
-  });
-  luarepl::set_function("close_viewer", [] { sandbox::close_viewer(); });
-  luarepl::set_function("load_surface", [](const std::string& path) {
-    auto task = sandbox::main_task_queue().push(
-        [path] { sandbox::main_viewer().load_surface(path); });
-    task.wait();
-  });
-
+  for (int i = 1; i < argc; ++i)
+    luarepl::async_run_file(std::filesystem::path(argv[i]));
   auto luarepl_task = async(luarepl::run);
-
-  // while (not done) {
-  //   std::this_thread::sleep_for(1s);
-  //   luarepl::log("tick");
-  // }
-
-  // jthread console_thread{[] {
-  //   console::init();
-  //   while (not_done()) {
-  //     process_console_input();
-  //   }
-  // }};
-
-  // jthread lua_thread{[] {
-  //   while (not_done()) {
-  //     while (not_done() && lua_state.process());
-  //     this_thread::sleep_for(100ms);
-  //   }
-  // }};
 
   sandbox::run_main_thread();
 }
@@ -160,18 +129,6 @@ void close_viewer() {
   });
   task.wait();
 }
-
-// static void process_console_input() {
-//   const auto str = console::input();
-//   if (!str) {
-//     quit();
-//     return;
-//   }
-//   string input = str;
-//   if (input.empty()) return;
-//   console::log("\n");
-//   lua_state.eval(input);
-// }
 
 static void run_main_thread() {
   while (not_done()) {
