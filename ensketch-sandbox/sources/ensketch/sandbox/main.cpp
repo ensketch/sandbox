@@ -1,4 +1,5 @@
 #include <ensketch/luarepl/luarepl.hpp>
+#include <ensketch/luarepl/spinners.hpp>
 //
 #include <ensketch/sandbox/main.hpp>
 //
@@ -24,6 +25,46 @@ static void set_main_thread() noexcept;
 static void process_console_input();
 
 static void run_main_thread();
+
+inline auto digits_from(std::floating_point auto x,
+                        int min_width = 0) -> std::string {
+  constexpr czstring digit[] = {"🯰", "🯱", "🯲", "🯳", "🯴",
+                                "🯵", "🯶", "🯷", "🯸", "🯹"};
+  std::string result{};
+  if (x < 0) {
+    result += "-";
+    x = -x;
+  }
+  if (x == 0) {
+    result += digit[0];
+    return result;
+  }
+  const auto k = static_cast<int>(std::floor(std::log10(x)));
+  const auto width = std::max(k, min_width - 1);
+  for (size_t i = 0; i <= width; ++i) {
+    result = digit[static_cast<size_t>(std::floor(x)) % 10] + result;
+    x /= 10;
+  }
+  return result;
+}
+
+static auto prompt() {
+  using namespace fmt;
+  return fmt::format(
+      "\n{}{}{}{}{}{}{}\n{}\n{}  ",  //
+      fmt::format(fg(color::gray), "🭅"),
+      fmt::format(
+          fg(color::white) | bg(color::gray), "せん {}",
+          animation(luarepl::dot_spinner, luarepl::current_eval_time())),
+      fmt::format(fg(color::gray) | bg(color::dim_gray), "🭡"),
+      fmt::format(fg(color::white) | bg(color::dim_gray), " {} FPS ",
+                  digits_from(detail::timer.fps(), 2)),
+      fmt::format(fg(color::dim_gray) | bg(color::dark_gray), "🭡"),
+      fmt::format(fg(color::black) | bg(color::dark_gray), " {} ",
+                  std::filesystem::current_path().string()),
+      fmt::format(fg(color::dark_gray), "🭡"), fmt::format(fg(color::gray), "🭡"),
+      fmt::format(fg(color::gray), "🭛"));
+}
 
 }  // namespace ensketch::sandbox
 
@@ -137,6 +178,7 @@ static void run_main_thread() {
     detail::tasks.process();
     // console::capture(format("FPS = {:6.2f}\n", detail::timer.fps()));
     // console::update();
+    luarepl::set_prompt(prompt());
     detail::timer.update();
     if (detail::viewer) {
       detail::viewer.process_events();

@@ -11,6 +11,10 @@ namespace ensketch::luarepl {
 ///
 void set_done_and_quit(auto&& is_done, auto&& shall_quit);
 
+/// Asynchronously set the prompt of the REPL.
+///
+void set_prompt(std::string_view str);
+
 /// Run `luarepl` main loop. This call blocks.
 ///
 void run();
@@ -50,6 +54,10 @@ auto eval(std::string_view str)  //
 ///
 void async_run(std::string_view str);
 void async_run(std::string&& str);
+
+///
+///
+auto current_eval_time() -> std::chrono::milliseconds;
 
 }  // namespace ensketch::luarepl
 

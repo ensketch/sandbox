@@ -1,7 +1,6 @@
 #include "luarepl.hpp"
 //
 #include "lexer.hpp"
-#include "spinners.hpp"
 //
 #include <replxx.hxx>
 //
@@ -26,6 +25,7 @@ std::atomic<bool> is_interrupted{false};
 std::atomic<bool> is_evaluating{false};
 repl_state repl{};
 task_queue tasks{};
+std::chrono::time_point<std::chrono::high_resolution_clock> eval_start{};
 }  // namespace
 std::mutex mutex{};
 sol::state lua{};
@@ -68,29 +68,32 @@ static void process_repl() {
   size_t i = 0;
   const auto start = clock::now();
   while (task.wait_for(10ms) != std::future_status::ready) {
-    {
-      const auto time = is_evaluating ? clock::now() - start : 0ms;
-      const auto prompt_str = fmt::format(fmt::bg(fmt::color::gray), "せん {}",
-                                          animation(dot_spinner, time));
-      const auto prompt = fmt::format(
-          "\n{}{}{}{}{}{}{}\n{} ", fmt::format(fmt::fg(fmt::color::gray), "🭅"),
-          fmt::format(fmt::fg(fmt::color::white) | fmt::bg(fmt::color::gray),
-                      "{}", prompt_str),
-          fmt::format(fmt::fg(fmt::color::gray) | fmt::bg(fmt::color::dim_gray),
-                      "🭡"),
-          fmt::format(
-              fmt::fg(fmt::color::white) | fmt::bg(fmt::color::dim_gray),
-              " 🯶🯰 FPS "),
-          fmt::format(
-              fmt::fg(fmt::color::dim_gray) | fmt::bg(fmt::color::dark_gray),
-              "🭡"),
-          fmt::format(
-              fmt::fg(fmt::color::black) | fmt::bg(fmt::color::dark_gray),
-              " {} ", std::filesystem::current_path().string()),
-          fmt::format(fmt::fg(fmt::color::dark_gray), "🭡"),
-          fmt::format(fmt::fg(fmt::color::gray), "🭡"));
-      repl.set_prompt(prompt);
-    }
+    // {
+    //   const czstring digit[] = {"🯰", "🯱", "🯲", "🯳", "🯴",
+    //                             "🯵", "🯶", "🯷", "🯸", "🯹"};
+
+    //   const auto time = is_evaluating ? clock::now() - start : 0ms;
+    //   const auto prompt_str =
+    //       fmt::format("せん {}", animation(dot_spinner, time));
+    //   const auto prompt = fmt::format(
+    //       "\n{}{}{}{}{}{}{}\n{} ", fmt::format(fmt::fg(fmt::color::gray), "🭅"),
+    //       fmt::format(fmt::fg(fmt::color::white) | fmt::bg(fmt::color::gray),
+    //                   "{}", prompt_str),
+    //       fmt::format(fmt::fg(fmt::color::gray) | fmt::bg(fmt::color::dim_gray),
+    //                   "🭡"),
+    //       fmt::format(
+    //           fmt::fg(fmt::color::white) | fmt::bg(fmt::color::dim_gray),
+    //           " 🯶🯰 FPS "),
+    //       fmt::format(
+    //           fmt::fg(fmt::color::dim_gray) | fmt::bg(fmt::color::dark_gray),
+    //           "🭡"),
+    //       fmt::format(
+    //           fmt::fg(fmt::color::black) | fmt::bg(fmt::color::dark_gray),
+    //           " {} ", std::filesystem::current_path().string()),
+    //       fmt::format(fmt::fg(fmt::color::dark_gray), "🭡"),
+    //       fmt::format(fmt::fg(fmt::color::gray), "🭡"));
+    //   repl.set_prompt(prompt);
+    // }
     // if (is_evaluating)
     //   repl.set_prompt(std::format(
     //       "せん {} ╱ ", animation(dot_spinner, clock::now() - start)));
@@ -181,6 +184,10 @@ static void init_repl() {
   repl.set_highlighter_callback(highlighter);
 }
 
+void set_prompt(std::string_view str) {
+  repl.set_prompt(std::string{str});
+}
+
 void log(czstring str) {
   repl.print("%s\n", str);
 }
@@ -220,6 +227,7 @@ auto eval(std::string_view str) -> sol::protected_function_result {
   std::scoped_lock lock{mutex};
   is_interrupted = false;
   is_evaluating = true;
+  eval_start = std::chrono::high_resolution_clock::now();
   auto result = lua.safe_script(str, sol::script_pass_on_error);
   is_evaluating = false;
   return result;
@@ -245,6 +253,12 @@ void async_run(std::string_view str) {
   // We need to copy the content of `str` to ensure the task won't
   // access the view's content after the end of its lifetime.
   async_run(string{str});
+}
+
+auto current_eval_time() -> std::chrono::milliseconds {
+  if (!is_evaluating) return 0s;
+  return std::chrono::duration_cast<std::chrono::milliseconds>(
+      std::chrono::high_resolution_clock::now() - eval_start);
 }
 
 }  // namespace ensketch::luarepl
