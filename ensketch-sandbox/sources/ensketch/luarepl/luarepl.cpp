@@ -13,6 +13,7 @@ namespace ensketch::luarepl {
 // Type Aliases
 //
 using repl_state = replxx::Replxx;
+using completions_t = repl_state::completions_t;
 using KEY = repl_state::KEY;
 using ACTION_RESULT = repl_state::ACTION_RESULT;
 using Color = repl_state::Color;
@@ -28,6 +29,7 @@ std::mutex prompt_mutex{};
 std::string prompt_str{};
 task_queue tasks{};
 std::chrono::time_point<std::chrono::high_resolution_clock> eval_start{};
+std::chrono::duration<float32> _last_eval_time{};
 }  // namespace
 std::mutex mutex{};
 sol::state lua{};
@@ -70,38 +72,6 @@ static void process_repl() {
   size_t i = 0;
   const auto start = clock::now();
   while (task.wait_for(10ms) != std::future_status::ready) {
-    // {
-    //   const czstring digit[] = {"🯰", "🯱", "🯲", "🯳", "🯴",
-    //                             "🯵", "🯶", "🯷", "🯸", "🯹"};
-
-    //   const auto time = is_evaluating ? clock::now() - start : 0ms;
-    //   const auto prompt_str =
-    //       fmt::format("せん {}", animation(dot_spinner, time));
-    //   const auto prompt = fmt::format(
-    //       "\n{}{}{}{}{}{}{}\n{} ", fmt::format(fmt::fg(fmt::color::gray), "🭅"),
-    //       fmt::format(fmt::fg(fmt::color::white) | fmt::bg(fmt::color::gray),
-    //                   "{}", prompt_str),
-    //       fmt::format(fmt::fg(fmt::color::gray) | fmt::bg(fmt::color::dim_gray),
-    //                   "🭡"),
-    //       fmt::format(
-    //           fmt::fg(fmt::color::white) | fmt::bg(fmt::color::dim_gray),
-    //           " 🯶🯰 FPS "),
-    //       fmt::format(
-    //           fmt::fg(fmt::color::dim_gray) | fmt::bg(fmt::color::dark_gray),
-    //           "🭡"),
-    //       fmt::format(
-    //           fmt::fg(fmt::color::black) | fmt::bg(fmt::color::dark_gray),
-    //           " {} ", std::filesystem::current_path().string()),
-    //       fmt::format(fmt::fg(fmt::color::dark_gray), "🭡"),
-    //       fmt::format(fmt::fg(fmt::color::gray), "🭡"));
-    //   repl.set_prompt(prompt);
-    // }
-    // if (is_evaluating)
-    //   repl.set_prompt(std::format(
-    //       "せん {} ╱ ", animation(dot_spinner, clock::now() - start)));
-    // else
-    //   repl.set_prompt(std::format("せん ╱ ", animation(dot_spinner, 0ms)));
-
     if (not done()) continue;
     abort_input();
     return;
@@ -149,6 +119,13 @@ static void highlighter(const std::string& context,
     repl.bind_key_internal(KEY::ENTER, "commit_line");
 }
 
+static auto completion(const std::string& input, int& length) -> completions_t {
+  completions_t completions;
+  completions.push_back("print");
+  completions.push_back("for");
+  return completions;
+}
+
 /// Initialize the global Lua state of the REPL.
 ///
 static void init_lua() {
@@ -184,6 +161,7 @@ static void init_repl() {
   repl.set_max_history_size(128);
 
   repl.set_highlighter_callback(highlighter);
+  repl.set_completion_callback(completion);
 }
 
 auto prompt() -> std::string {
@@ -238,6 +216,8 @@ auto eval(std::string_view str) -> sol::protected_function_result {
   is_evaluating = true;
   eval_start = std::chrono::high_resolution_clock::now();
   auto result = lua.safe_script(str, sol::script_pass_on_error);
+  _last_eval_time = std::chrono::duration<float32>(
+      std::chrono::high_resolution_clock::now() - eval_start);
   is_evaluating = false;
   return result;
 }
@@ -268,6 +248,10 @@ auto current_eval_time() -> std::chrono::milliseconds {
   if (!is_evaluating) return 0s;
   return std::chrono::duration_cast<std::chrono::milliseconds>(
       std::chrono::high_resolution_clock::now() - eval_start);
+}
+
+auto last_eval_time() -> std::chrono::duration<float32> {
+  return _last_eval_time;
 }
 
 }  // namespace ensketch::luarepl

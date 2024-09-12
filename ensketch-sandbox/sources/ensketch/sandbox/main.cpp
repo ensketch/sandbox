@@ -53,9 +53,11 @@ static auto prompt() {
   return fmt::format(
       "\n{}{}{}{}{}{}{}\n{}\n{}  ",  //
       fmt::format(fg(color::gray), "🭅"),
-      fmt::format(
-          fg(color::white) | bg(color::gray), "せん {}",
-          animation(luarepl::dot_spinner, luarepl::current_eval_time())),
+      fmt::format(fg(color::white) | bg(color::gray), "せん {} {}ms",
+                  animation(luarepl::dot_spinner, luarepl::current_eval_time()),
+                  std::chrono::duration_cast<std::chrono::milliseconds>(
+                      luarepl::last_eval_time())
+                      .count()),
       fmt::format(fg(color::gray) | bg(color::dim_gray), "🭡"),
       fmt::format(fg(color::white) | bg(color::dim_gray), " {} FPS ",
                   digits_from(detail::timer.fps(), 2)),

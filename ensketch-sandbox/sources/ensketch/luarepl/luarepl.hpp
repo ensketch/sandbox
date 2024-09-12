@@ -63,6 +63,10 @@ void async_run(std::string&& str);
 ///
 auto current_eval_time() -> std::chrono::milliseconds;
 
+///
+///
+auto last_eval_time() -> std::chrono::duration<float32>;
+
 }  // namespace ensketch::luarepl
 
 #include "luarepl.ipp"
