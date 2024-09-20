@@ -1,30 +1,33 @@
 #include <ensketch/luarepl/luarepl.hpp>
 #include <ensketch/luarepl/spinners.hpp>
 //
-#include <ensketch/sandbox/main.hpp>
+#include <ensketch/sandbox/main_thread.hpp>
 //
-#include <ensketch/sandbox/console.hpp>
 #include <ensketch/sandbox/frame_timer.hpp>
 #include <ensketch/sandbox/log.hpp>
 
 namespace ensketch::sandbox {
 
+void add_lua_functions();
+
+namespace luarepl = ensketch::luarepl;
+
 namespace detail {
 namespace {
-atomic<bool> done = false;
-thread::id main_thread{};
+// atomic<bool> done = false;
+// thread::id main_thread{};
 frame_timer timer{10.0f};
 // task_queue chaiscript_tasks{};
-task_queue tasks{};
-ensketch::sandbox::viewer viewer{};
+// task_queue tasks{};
+// ensketch::sandbox::viewer viewer{};
 }  // namespace
 }  // namespace detail
 
-static void set_main_thread() noexcept;
+// static void set_main_thread() noexcept;
 
-static void process_console_input();
+// static void process_console_input();
 
-static void run_main_thread();
+// static void run_main_thread();
 
 inline auto digits_from(std::floating_point auto x,
                         int min_width = 0) -> std::string {
@@ -71,80 +74,18 @@ static auto prompt() {
 }  // namespace ensketch::sandbox
 
 int main(int argc, char* argv[]) {
-  namespace luarepl = ensketch::luarepl;
   namespace sandbox = ensketch::sandbox;
-  using namespace ensketch::xstd;
-  // using namespace ensketch::sandbox;
+  using namespace sandbox;
 
-  sandbox::set_main_thread();
-
-  luarepl::set_done_and_quit([] { return !sandbox::not_done(); },
-                             [] { sandbox::quit(); });
-  sandbox::add_lua_functions();
+  luarepl::set_done_and_quit([] { return done(); }, [] { quit(); });
+  add_lua_functions();
 
   for (int i = 1; i < argc; ++i)
     luarepl::async_run_file(std::filesystem::path(argv[i]));
-  auto luarepl_task = async(luarepl::run);
 
-  sandbox::run_main_thread();
+  auto luarepl_task = async_invoke(luarepl::run);
+
+  luarepl::set_prompt(prompt());
+
+  main_thread::run(sandbox::stop_token());
 }
-
-namespace ensketch::sandbox {
-
-static void set_main_thread() noexcept {
-  detail::main_thread = this_thread::get_id();
-}
-
-auto main_thread() noexcept -> thread::id {
-  return detail::main_thread;
-}
-
-void quit() noexcept {
-  detail::done = true;
-}
-
-bool not_done() noexcept {
-  return !detail::done.load();
-}
-
-auto main_task_queue() -> task_queue& {
-  return detail::tasks;
-}
-
-auto main_viewer() noexcept -> viewer& {
-  return detail::viewer;
-}
-
-void open_viewer(int width, int height) {
-  auto task = detail::tasks.push([width, height] {
-    detail::viewer.open(width, height);
-    detail::viewer.set_vsync();
-    detail::timer.set_syncing(false);
-  });
-  task.wait();
-}
-
-void close_viewer() {
-  auto task = detail::tasks.push([] {
-    detail::viewer.close();
-    detail::timer.set_syncing();
-  });
-  task.wait();
-}
-
-static void run_main_thread() {
-  while (not_done()) {
-    detail::tasks.process();
-    // console::capture(format("FPS = {:6.2f}\n", detail::timer.fps()));
-    // console::update();
-    luarepl::set_prompt(prompt());
-    detail::timer.update();
-    if (detail::viewer) {
-      detail::viewer.process_events();
-      detail::viewer.update();
-      detail::viewer.render();
-    }
-  }
-}
-
-}  // namespace ensketch::sandbox

@@ -39,4 +39,17 @@ using namespace glm;
 using clock = std::chrono::high_resolution_clock;
 using duration = std::chrono::duration<float32>;
 
+// Attempt to quit the application in a thread-safe manner.
+//
+void quit() noexcept;
+
+// Receive an `std::stop_token` from the application's global stop source.
+//
+auto stop_token() noexcept -> std::stop_token;
+
+// Check whether the application has been requested to stop.
+// Internally, this will receive the stop state of the global stop source.
+//
+bool done() noexcept;
+
 }  // namespace ensketch::sandbox

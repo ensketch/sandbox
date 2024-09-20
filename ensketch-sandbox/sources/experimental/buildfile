@@ -3,7 +3,7 @@ import replxx = libreplxx%lib{replxx}
 import sol = sol2%lib{sol2}
 exe{experiment}: {hxx ixx txx cxx}{**} $xstd $replxx $sol
 {
-  test = false
+  test = true
 }
 
 out_pfx = [dir_path] $out_root/sources/

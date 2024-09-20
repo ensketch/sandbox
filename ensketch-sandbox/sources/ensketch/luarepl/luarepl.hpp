@@ -5,6 +5,12 @@
 
 namespace ensketch::luarepl {
 
+///
+///
+struct lua_view : sol::state_view {
+  std::unique_lock<std::mutex> lock{};
+};
+
 /// Set the query whether the application is done, denoted by `is_done`,
 /// and the function to quit the application, denoted by `shall_quit`.
 /// If this function is not called, `luarepl` provides some defaults.
@@ -27,6 +33,10 @@ void run();
 ///
 void log(czstring str);
 void log(std::string_view str);
+
+///
+///
+auto lua_state() -> lua_view;
 
 /// Set a given function object as Lua function inside the REPL.
 /// This function is available to the user by the given `name`.

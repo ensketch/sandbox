@@ -68,7 +68,7 @@ static void process_input(czstring zstr) {
 /// The function also handles the prompt and prompt animations.
 ///
 static void process_repl() {
-  auto task = async([] { return repl.input(prompt()); });
+  auto task = async_invoke([] { return repl.input(prompt()); });
   size_t i = 0;
   const auto start = clock::now();
   while (task.wait_for(10ms) != std::future_status::ready) {
@@ -186,7 +186,7 @@ void log(std::string_view str) {
 void run() {
   init_lua();
   init_repl();
-  auto lua_task = async([] {
+  auto lua_task = async_invoke([] {
     while (not done()) {
       while (tasks.process())
         if (done()) return;
@@ -252,6 +252,10 @@ auto current_eval_time() -> std::chrono::milliseconds {
 
 auto last_eval_time() -> std::chrono::duration<float32> {
   return _last_eval_time;
+}
+
+auto lua_state() -> lua_view {
+  return {sol::state_view{lua}, std::unique_lock{mutex}};
 }
 
 }  // namespace ensketch::luarepl

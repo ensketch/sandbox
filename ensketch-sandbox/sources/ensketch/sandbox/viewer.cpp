@@ -1,9 +1,8 @@
 #include <ensketch/sandbox/viewer.hpp>
 //
-#include <ensketch/sandbox/application.hpp>
+#include <ensketch/sandbox/defaults.hpp>
 #include <ensketch/sandbox/hyper_surface_smoothing.hpp>
 #include <ensketch/sandbox/log.hpp>
-#include <ensketch/sandbox/main.hpp>
 #include <ensketch/sandbox/ray_tracer.hpp>
 //
 #include <ensketch/opengl/shader_object.hpp>
@@ -330,19 +329,19 @@ void main() {
 
   if (!vs) {
     log::error(vs.info_log());
-    app().close_viewer();
+    // app().close_viewer();
     return;
   }
 
   if (!gs) {
     log::error(gs.info_log());
-    app().close_viewer();
+    // app().close_viewer();
     return;
   }
 
   if (!fs) {
     log::error(fs.info_log());
-    app().close_viewer();
+    // app().close_viewer();
     return;
   }
 
@@ -353,7 +352,7 @@ void main() {
 
   if (!device->shader.linked()) {
     log::error(device->shader.info_log());
-    app().close_viewer();
+    // app().close_viewer();
     return;
   }
 
@@ -530,19 +529,19 @@ void main() {
 
   if (!level_set_vs) {
     log::error(level_set_vs.info_log());
-    app().close_viewer();
+    // app().close_viewer();
     return;
   }
 
   if (!level_set_gs) {
     log::error(level_set_gs.info_log());
-    app().close_viewer();
+    // app().close_viewer();
     return;
   }
 
   if (!level_set_fs) {
     log::error(level_set_fs.info_log());
-    app().close_viewer();
+    // app().close_viewer();
     return;
   }
 
@@ -553,7 +552,7 @@ void main() {
 
   if (!device->level_set_shader.linked()) {
     log::error(device->level_set_shader.info_log());
-    app().close_viewer();
+    // app().close_viewer();
     return;
   }
 
@@ -587,13 +586,13 @@ void main() {
 
   if (!point_vs) {
     log::error(point_vs.info_log());
-    app().close_viewer();
+    // app().close_viewer();
     return;
   }
 
   if (!point_fs) {
     log::error(point_fs.info_log());
-    app().close_viewer();
+    // app().close_viewer();
     return;
   }
 
@@ -603,7 +602,7 @@ void main() {
 
   if (!device->point_shader.linked()) {
     log::error(device->point_shader.info_log());
-    app().close_viewer();
+    // app().close_viewer();
     return;
   }
 
@@ -770,19 +769,19 @@ void main() {
 
   if (!surface_vertex_curve_vs) {
     log::error(surface_vertex_curve_vs.info_log());
-    app().close_viewer();
+    // app().close_viewer();
     return;
   }
 
   if (!surface_vertex_curve_gs) {
     log::error(surface_vertex_curve_gs.info_log());
-    app().close_viewer();
+    // app().close_viewer();
     return;
   }
 
   if (!surface_vertex_curve_fs) {
     log::error(surface_vertex_curve_fs.info_log());
-    app().close_viewer();
+    // app().close_viewer();
     return;
   }
 
@@ -793,7 +792,7 @@ void main() {
 
   if (!device->surface_vertex_curve_shader.linked()) {
     log::error(device->surface_vertex_curve_shader.info_log());
-    app().close_viewer();
+    // app().close_viewer();
     return;
   }
 
@@ -834,13 +833,13 @@ void main() {
 
   if (!mouse_curve_vs) {
     log::error(mouse_curve_vs.info_log());
-    app().close_viewer();
+    // app().close_viewer();
     return;
   }
 
   if (!mouse_curve_fs) {
     log::error(mouse_curve_fs.info_log());
-    app().close_viewer();
+    // app().close_viewer();
     return;
   }
 
@@ -850,7 +849,7 @@ void main() {
 
   if (!device->mouse_curve_shader.linked()) {
     log::error(device->mouse_curve_shader.info_log());
-    app().close_viewer();
+    // app().close_viewer();
     return;
   }
 
@@ -1152,7 +1151,8 @@ void viewer::store_image() {
 }
 
 void viewer::store_image_from_view(const filesystem::path& path) {
-  const auto p = app().path_from_lookup(path);
+  // const auto p = app().path_from_lookup(path);
+  const auto p = path;
 
   int width = camera.screen_width();
   int height = camera.screen_height();
@@ -1174,7 +1174,8 @@ void viewer::store_image_from_view(const filesystem::path& path) {
 }
 
 void viewer::save_perspective(const filesystem::path& path) {
-  const auto p = app().path_from_lookup(path);
+  // const auto p = app().path_from_lookup(path);
+  const auto p = path;
   ofstream file{p};
   if (!file) {
     log::error(format("Failed to save view to file.\nfile = '{}'", p.string()));
@@ -1191,7 +1192,8 @@ void viewer::save_perspective(const filesystem::path& path) {
 }
 
 void viewer::load_perspective(const filesystem::path& path) {
-  const auto p = app().path_from_lookup(path);
+  // const auto p = app().path_from_lookup(path);
+  const auto p = path;
   ifstream file{p};
   if (!file) {
     log::error(
@@ -1255,7 +1257,8 @@ void viewer::set_y_as_up() {
 }
 
 void viewer::load_surface(const filesystem::path& path) {
-  const auto p = app().path_from_lookup(path);
+  // const auto p = app().path_from_lookup(path);
+  const auto p = path;
   try {
     const auto load_start = clock::now();
 
@@ -2043,7 +2046,8 @@ void viewer::compute_hyper_surface_smoothing() try {
 }
 
 void viewer::save_surface_vertex_curve(const filesystem::path& path) {
-  const auto p = app().path_from_lookup(path);
+  // const auto p = app().path_from_lookup(path);
+  const auto p = path;
   ofstream file{p};
   if (!file) {
     log::error(
@@ -2061,7 +2065,8 @@ void viewer::save_surface_vertex_curve(const filesystem::path& path) {
 }
 
 void viewer::load_surface_vertex_curve(const filesystem::path& path) {
-  const auto p = app().path_from_lookup(path);
+  // const auto p = app().path_from_lookup(path);
+  const auto p = path;
   ifstream file{p};
   if (!file) {
     log::error(
