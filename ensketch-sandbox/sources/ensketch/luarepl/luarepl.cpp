@@ -64,8 +64,8 @@ static void process_input(czstring zstr) {
   async_run(str);
 }
 
-/// Call `repl.input(...)` by wrapping it using `async` to make it interruptible.
-/// The function also handles the prompt and prompt animations.
+/// Call `repl.input(...)` by wrapping it using `async` to make it
+/// interruptible. The function also handles the prompt and prompt animations.
 ///
 static void process_repl() {
   auto task = async_invoke([] { return repl.input(prompt()); });
@@ -198,6 +198,7 @@ void run() {
     std::ofstream history{"history.txt"};
     repl.history_save(history);
   }
+  lua_task.get();
 }
 
 auto eval_file(const std::filesystem::path& path)

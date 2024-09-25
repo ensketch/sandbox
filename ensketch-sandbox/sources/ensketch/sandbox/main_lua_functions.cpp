@@ -1,4 +1,6 @@
 #include <ensketch/luarepl/luarepl.hpp>
+#include <ensketch/sandbox/basic_viewer.hpp>
+#include <ensketch/sandbox/executor.hpp>
 #include <ensketch/sandbox/log.hpp>
 #include <ensketch/sandbox/simple_viewer.hpp>
 
@@ -63,9 +65,11 @@ void add_lua_functions() {
       //       task.wait();
       //     }),
 
-      // fn<"set_wireframe", "Turn on/off wireframe for shading.">([](bool value) {
+      // fn<"set_wireframe", "Turn on/off wireframe for shading.">([](bool
+      // value) {
       //   auto task =
-      //       main_task_queue().push([=] { main_viewer().set_wireframe(value); });
+      //       main_task_queue().push([=] { main_viewer().set_wireframe(value);
+      //       });
       //   task.wait();
       // }),
 
@@ -93,7 +97,8 @@ void add_lua_functions() {
       //     }),
 
       // fn<"load_surface_vertex_curve",
-      //    "Load surface vertex curve from given file.">([](const string& path) {
+      //    "Load surface vertex curve from given file.">([](const string& path)
+      //    {
       //   auto task = main_task_queue().push(
       //       [path] { main_viewer().load_surface_vertex_curve(path); });
       //   task.wait();
@@ -114,8 +119,8 @@ void add_lua_functions() {
       // }),
 
       // fn<"hyper_smooth_surface_vertex_curve",
-      //    "Smooth the current surface vertex curve by using the hyper surface "
-      //    "smoothing approach.">([](double lambda, int smoothing_passes) {
+      //    "Smooth the current surface vertex curve by using the hyper surface
+      //    " "smoothing approach.">([](double lambda, int smoothing_passes) {
       //   auto task = main_task_queue().push([=] {
       //     auto& viewer = main_viewer();
       //     viewer.hyper_lambda = lambda;
@@ -142,18 +147,37 @@ void add_lua_functions() {
 
   auto state = luarepl::lua_state();
   auto table = state["ensketch"].get_or_create<sol::table>();
-  for_each(functions, [&table](auto& f) {
-    using entry = std::decay_t<decltype(f)>;
-    table.set_function(view_from(entry::name()), f);
-  });
-  table.new_usertype<simple_viewer>(
-      "viewer",                                                              //
-      "new", sol::constructors<simple_viewer(), simple_viewer(int, int)>{},  //
-      "quit",
-      &simple_viewer::quit,  //
-      "set_background_color", &simple_viewer::set_background_color);
+  // for_each(functions, [&table](auto& f) {
+  //   using entry = std::decay_t<decltype(f)>;
+  //   table.set_function(view_from(entry::name()), f);
+  // });
+  // table.new_usertype<simple_viewer>(
+  //     "viewer", // "new", sol::constructors<simple_viewer(),
+  //     simple_viewer(int, int)>{},  // "quit", &simple_viewer::quit,  //
+  //     "set_background_color", &simple_viewer::set_background_color);
   // table["viewer"].set_function("open", [](int width, int height) {
   //   return simple_viewer{width, height};
+  // });
+
+  using viewer_type = executor<basic_viewer_api>;
+  table.new_usertype<viewer_type>(
+      "viewer",  //
+      "open",
+      sol::constructors<viewer_type(), viewer_type(int, int),
+                        viewer_type(int, int, std::string_view)>{},  //
+      "close", &viewer_type::close,                                  //
+      "set_background_color", &viewer_type::set_background_color,    //
+      "help", [] {
+        log::info(
+            "open\n"
+            "close\n"
+            "set_background_color\n");
+      });
+  // table["viewer"].set_function("help", [] {
+  //   log::info(
+  //       "open\n"
+  //       "close\n"
+  //       "set_background_color\n");
   // });
 }
 

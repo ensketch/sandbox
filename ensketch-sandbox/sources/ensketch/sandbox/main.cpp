@@ -88,4 +88,5 @@ int main(int argc, char* argv[]) {
   luarepl::set_prompt(prompt());
 
   main_thread::run(sandbox::stop_token());
+  luarepl_task.get();
 }
