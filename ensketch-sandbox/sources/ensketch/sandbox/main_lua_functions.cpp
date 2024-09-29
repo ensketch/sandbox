@@ -3,6 +3,7 @@
 #include <ensketch/sandbox/executor.hpp>
 #include <ensketch/sandbox/log.hpp>
 #include <ensketch/sandbox/simple_viewer.hpp>
+#include <ensketch/sandbox/surface_viewer.hpp>
 
 namespace ensketch::sandbox {
 
@@ -159,26 +160,47 @@ void add_lua_functions() {
   //   return simple_viewer{width, height};
   // });
 
-  using viewer_type = executor<basic_viewer_api>;
+  // using viewer_type = executor<basic_viewer_api>;
+  // table.new_usertype<viewer_type>(
+  //     "viewer",  //
+  //     "open",
+  //     sol::constructors<viewer_type(), viewer_type(int, int),
+  //                       viewer_type(int, int, std::string_view)>{},  //
+  //     "close", &viewer_type::close,                                  //
+  //     "show", &viewer_type::show,                                    //
+  //     "hide", &viewer_type::hide,                                    //
+  //     "focused", &viewer_type::focused,                              //
+  //     "focus", &viewer_type::focus,                                  //
+  //     "set_position", &viewer_type::set_position,                    //
+  //     "resize", &viewer_type::resize,                                //
+  //     "mouse_position", &viewer_type::mouse_position,                //
+  //     "set_background_color", &viewer_type::set_background_color,    //
+  //     "help", [] {
+  //       log::info(
+  //           "open\n"
+  //           "close\n"
+  //           "set_background_color\n");
+  //     });
+  using viewer_type = executor<surface_viewer_api>;
   table.new_usertype<viewer_type>(
-      "viewer",  //
-      "open",
-      sol::constructors<viewer_type(), viewer_type(int, int),
-                        viewer_type(int, int, std::string_view)>{},  //
-      "close", &viewer_type::close,                                  //
-      "set_background_color", &viewer_type::set_background_color,    //
+      "viewer",                                                    //
+      "open", sol::constructors<viewer_type()>{},                  //
+      "close", &viewer_type::close,                                //
+      "show", &viewer_type::show,                                  //
+      "hide", &viewer_type::hide,                                  //
+      "focused", &viewer_type::focused,                            //
+      "focus", &viewer_type::focus,                                //
+      "set_position", &viewer_type::set_position,                  //
+      "resize", &viewer_type::resize,                              //
+      "mouse_position", &viewer_type::mouse_position,              //
+      "set_background_color", &viewer_type::set_background_color,  //
+      "load_surface", &viewer_type::load_surface,                  //
       "help", [] {
         log::info(
             "open\n"
             "close\n"
             "set_background_color\n");
       });
-  // table["viewer"].set_function("help", [] {
-  //   log::info(
-  //       "open\n"
-  //       "close\n"
-  //       "set_background_color\n");
-  // });
 }
 
 }  // namespace ensketch::sandbox

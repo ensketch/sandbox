@@ -1,16 +1,19 @@
 #pragma once
-#include <ensketch/sandbox/basic_opengl_window.hpp>
+#include <ensketch/sandbox/log.hpp>
+#include <ensketch/sandbox/opengl_window.hpp>
 
 namespace ensketch::sandbox {
 
-class basic_viewer : public basic_opengl_window {
-  friend basic_opengl_window;
+///
+///
+class basic_viewer_state : public opengl_window_state {
+  friend opengl_window_state;
 
  public:
-  basic_viewer(int width = 500,
-               int height = 500,
-               std::string_view title = "Basic Viewer")
-      : basic_opengl_window{width, height, title} {
+  basic_viewer_state(int width = 500,
+                     int height = 500,
+                     std::string_view title = "Basic Viewer")
+      : opengl_window_state{width, height, title} {
     // int flags;
     // glGetIntegerv(GL_CONTEXT_FLAGS, &flags);
     // if (flags & static_cast<int>(GL_CONTEXT_FLAG_DEBUG_BIT)) {
@@ -36,7 +39,7 @@ class basic_viewer : public basic_opengl_window {
     if (event.type == sf::Event::Closed)
       sandbox::quit();
     else if (event.type == sf::Event::Resized)
-      resize(event.size.width, event.size.height);
+      on_resize(event.size.width, event.size.height);
     else if (event.type == sf::Event::MouseWheelScrolled)
       zoom(0.1 * event.mouseWheelScroll.delta);
     else if (event.type == sf::Event::KeyPressed) {
@@ -48,7 +51,7 @@ class basic_viewer : public basic_opengl_window {
     }
   }
 
-  void resize(int width, int height) {
+  void on_resize(int width, int height) {
     glViewport(0, 0, width, height);
     camera.set_screen_resolution(width, height);
     view_should_update = true;
@@ -161,14 +164,14 @@ class basic_viewer : public basic_opengl_window {
   opengl::camera camera{};
 };
 
+///
+///
 template <typename derived>
-class basic_viewer_api {
- public:
-  using state_type = basic_viewer;
+struct basic_viewer_api : opengl_window_api<derived> {
+  using base = opengl_window_api<derived>;
+  using state_type = basic_viewer_state;
 
-  constexpr decltype(auto) self() noexcept {
-    return static_cast<derived&>(*this);
-  }
+  using base::self;
 
   void set_background_color(float red, float green, float blue) {
     self().invoke([red, green, blue](state_type& state) {
