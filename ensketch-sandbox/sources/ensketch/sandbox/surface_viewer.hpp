@@ -30,17 +30,14 @@ uniform mat4 view;
 
 layout (location = 0) in vec3 p;
 layout (location = 1) in vec3 n;
-layout (location = 2) in float f;
 
 out vec3 position;
 out vec3 normal;
-out float field;
 
 void main() {
   gl_Position = projection * view * vec4(p, 1.0);
   position = vec3(view * vec4(p, 1.0));
   normal = vec3(view * vec4(n, 0.0));
-  field = f;
 }
 )##"};
 
@@ -55,13 +52,11 @@ layout (triangle_strip, max_vertices = 3) out;
 
 in vec3 position[];
 in vec3 normal[];
-in float field[];
 
 out vec3 pos;
 out vec3 nor;
 out vec3 vnor;
 noperspective out vec3 edge_distance;
-out float phi;
 
 void main(){
   vec3 p0 = vec3(viewport * (gl_in[0].gl_Position /
@@ -90,7 +85,6 @@ void main(){
   nor = n;
   vnor = normal[0];
   pos = position[0];
-  phi = field[0];
   gl_Position = gl_in[0].gl_Position;
   EmitVertex();
 
@@ -98,7 +92,6 @@ void main(){
   nor = n;
   vnor = normal[1];
   pos = position[1];
-  phi = field[1];
   gl_Position = gl_in[1].gl_Position;
   EmitVertex();
 
@@ -106,7 +99,6 @@ void main(){
   nor = n;
   vnor = normal[2];
   pos = position[2];
-  phi = field[2];
   gl_Position = gl_in[2].gl_Position;
   EmitVertex();
 
@@ -117,8 +109,6 @@ void main(){
     const auto fs = opengl::fragment_shader{R"##(
 #version 460 core
 
-// uniform bool lighting = true;
-
 uniform bool wireframe = false;
 uniform bool use_face_normal = false;
 
@@ -126,18 +116,10 @@ in vec3 pos;
 in vec3 nor;
 in vec3 vnor;
 noperspective in vec3 edge_distance;
-in float phi;
 
 layout (location = 0) out vec4 frag_color;
 
 void main() {
-  // vec3 n = normalize(normal);
-  // vec3 view_dir = vec3(0.0, 0.0, 1.0);
-  // vec3 light_dir = view_dir;
-  // float d = max(dot(light_dir, n), 0.0);
-  // vec3 color = vec3(vec2(0.2 + 1.0 * pow(d,1000) + 0.75 * pow(d,0.2)),1.0);
-  // frag_color = vec4(color, 1.0);
-
   // Compute distance from edges.
 
   float d = min(edge_distance.x, edge_distance.y);
@@ -164,11 +146,6 @@ void main() {
   vec4 light_color = vec4(vec3(light), alpha);
 
   // Mix both color values.
-
-  float transition = 0.5;
-
-  // light_color = mix(vec4(0.0, 0.0, 0.0, 1.0), light_color, smoothstep(phi, -10.0, 10.0));
-  // if (!lighting) light_color = color;
 
   if (wireframe)
     frag_color = mix(line_color, light_color, mix_value);
@@ -252,6 +229,10 @@ void main() {
     glDrawElements(GL_TRIANGLES, 3 * surface.faces.size(), GL_UNSIGNED_INT, 0);
   }
 
+  void set_wireframe(bool value) { shader.set("wireframe", value); }
+
+  void use_face_normal(bool value) { shader.set("use_face_normal", value); }
+
  protected:
   polyhedral_surface surface{};
   float bounding_radius;
@@ -274,6 +255,16 @@ struct surface_viewer_api : basic_viewer_api<derived> {
         [path = std::string{path}](state_type& state) {
           state.load_surface(path);
         });
+  }
+
+  void set_wireframe(bool value) {
+    self().async_invoke_and_discard(
+        [value](state_type& state) { state.set_wireframe(value); });
+  }
+
+  void use_face_normal(bool value) {
+    self().async_invoke_and_discard(
+        [value](state_type& state) { state.use_face_normal(value); });
   }
 };
 

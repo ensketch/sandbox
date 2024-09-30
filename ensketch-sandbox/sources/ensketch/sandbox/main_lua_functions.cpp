@@ -195,6 +195,8 @@ void add_lua_functions() {
       "mouse_position", &viewer_type::mouse_position,              //
       "set_background_color", &viewer_type::set_background_color,  //
       "load_surface", &viewer_type::load_surface,                  //
+      "set_wireframe", &viewer_type::set_wireframe,                //
+      "use_face_normal", &viewer_type::use_face_normal,            //
       "help", [] {
         log::info(
             "open\n"
