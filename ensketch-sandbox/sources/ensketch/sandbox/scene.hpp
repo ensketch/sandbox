@@ -61,10 +61,10 @@ struct scene_animation_channel {
   std::vector<scene_animation_rotation_key> rotations{};
   std::vector<scene_animation_scaling_key> scalings{};
 
-  auto position(float64 time) -> glm::mat4;
-  auto rotation(float64 time) -> glm::mat4;
-  auto scaling(float64 time) -> glm::mat4;
-  auto transform(float64 time) -> glm::mat4;
+  auto position(float64 time) const -> glm::mat4;
+  auto rotation(float64 time) const -> glm::mat4;
+  auto scaling(float64 time) const -> glm::mat4;
+  auto transform(float64 time) const -> glm::mat4;
 };
 
 struct scene_animation {
@@ -130,24 +130,42 @@ struct scene_skeleton_mesh_weight_data {
   std::vector<scene_skeleton_mesh_weight> data{};
 };
 
+struct scene_skeleton_animation {};
+
 struct scene_skeleton {
   std::vector<uint32> parents{};
   std::vector<scene_skeleton_bone> bones{};
   std::vector<scene_node*> nodes{};
   std::vector<scene_skeleton_mesh_weight_data> weights{};
 
-  auto global_transforms() -> std::vector<glm::mat4> {
+  std::map<std::string_view, uint32> bone_name_map{};
+
+  // std::vector<scene_animation> animations{};
+
+  auto global_transforms(const scene_animation& animation,
+                         float64 time) -> std::vector<glm::mat4> {
     std::vector<glm::mat4> result{};
     result.reserve(bones.size());
-    for (size_t bid = 0; bid < bones.size(); ++bid) {
-      auto t = bones[bid].transform;
-      if (parents[bid] < bones.size()) t = result[parents[bid]] * t;
-      result.push_back(t);
-    }
     for (size_t bid = 0; bid < bones.size(); ++bid)
-      result[bid] = bones[bid].offset;
-    // result[bid] =
-    //     translate(glm::mat4(1.0f), glm::vec3(1.0f / (bid + 1)));
+      result.push_back(bones[bid].transform);
+
+    for (const auto& channel : animation.channels) {
+      if (auto it = bone_name_map.find(channel.node_name);
+          it != bone_name_map.end()) {
+        const auto bid = it->second;
+        // const auto bid = bone_name_map.at(channel.node_name);
+        result[bid] = channel.transform(time * animation.ticks);
+      }
+    }
+
+    for (size_t bid = 0; bid < bones.size(); ++bid)
+      if (parents[bid] < bones.size())
+        result[bid] = result[parents[bid]] * result[bid];
+
+    for (size_t bid = 0; bid < bones.size(); ++bid)
+      result[bid] *= bones[bid].offset;
+    // result[bid] = translate(glm::mat4(1.0f), glm::vec3(1.0f + bid));
+
     return result;
   }
 };

@@ -422,19 +422,20 @@ void main() {
       glBindBuffer(GL_SHADER_STORAGE_BUFFER, bone_transforms.id());
       glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 2, bone_transforms.id());
 
-      auto tmp = surface.skeleton.global_transforms();
-      bone_transforms.allocate_and_initialize(tmp);
-      for (auto& x : tmp) {
-        log::text(
-            std::format("{},{},{},{}", x[0][0], x[0][1], x[0][2], x[0][3]));
-        log::text(
-            std::format("{},{},{},{}", x[1][0], x[1][1], x[1][2], x[1][3]));
-        log::text(
-            std::format("{},{},{},{}", x[2][0], x[2][1], x[2][2], x[2][3]));
-        log::text(
-            std::format("{},{},{},{}", x[3][0], x[3][1], x[3][2], x[3][3]));
-        log::text("---");
-      }
+      // auto tmp = surface.skeleton.global_transforms();
+      // bone_transforms.allocate_and_initialize(tmp);
+      // for (auto& x : tmp) {
+      //   x = transpose(x);
+      //   log::text(
+      //       std::format("{},{},{},{}", x[0][0], x[0][1], x[0][2], x[0][3]));
+      //   log::text(
+      //       std::format("{},{},{},{}", x[1][0], x[1][1], x[1][2], x[1][3]));
+      //   log::text(
+      //       std::format("{},{},{},{}", x[2][0], x[2][1], x[2][2], x[2][3]));
+      //   log::text(
+      //       std::format("{},{},{},{}", x[3][0], x[3][1], x[3][2], x[3][3]));
+      //   log::text("---");
+      // }
 
       log::info(
           format("Sucessfully loaded surface mesh from file.\nfile = '{}'",
@@ -472,6 +473,17 @@ void main() {
     // device_mesh.faces.bind();
     // glDrawElements(GL_TRIANGLES, 3 * surface.faces.size(), GL_UNSIGNED_INT,
     // 0);
+
+    if (not surface.animations.empty()) {
+      const auto current = std::chrono::high_resolution_clock::now();
+      const auto time = std::fmod(
+          std::chrono::duration<float64>(current - start).count(),
+          surface.animations[0].duration / surface.animations[0].ticks);
+      auto tmp =
+          surface.skeleton.global_transforms(surface.animations[0], time);
+      bone_transforms.allocate_and_initialize(tmp);
+    }
+
     for (size_t i = 0; i < surface.meshes.size(); ++i) {
       device_meshes[i].va.bind();
       device_meshes[i].faces.bind();
@@ -497,6 +509,9 @@ void main() {
   scene surface{};
   // flat_scene surface{};
   float bounding_radius;
+
+  std::chrono::time_point<std::chrono::high_resolution_clock> start =
+      std::chrono::high_resolution_clock::now();
 
   opengl::shader_program shader{};
   struct opengl_mesh {

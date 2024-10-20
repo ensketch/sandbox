@@ -19,10 +19,14 @@ static auto quat_from(const aiQuaternion& q) noexcept -> glm::quat {
 }
 
 static auto mat4_from(const aiMatrix4x4& from) noexcept -> glm::mat4 {
-  return {from.a1, from.a2, from.a3, from.a4,  //
-          from.b1, from.b2, from.b3, from.b4,  //
-          from.c1, from.c2, from.c3, from.c4,  //
-          from.d1, from.d2, from.d3, from.d4};
+  // return {from.a1, from.a2, from.a3, from.a4,  //
+  //         from.b1, from.b2, from.b3, from.b4,  //
+  //         from.c1, from.c2, from.c3, from.c4,  //
+  //         from.d1, from.d2, from.d3, from.d4};
+  return {from.a1, from.b1, from.c1, from.d1,  //
+          from.a2, from.b2, from.c2, from.d2,  //
+          from.a3, from.b3, from.c3, from.d3,  //
+          from.a4, from.b4, from.c4, from.d4};
 };
 
 static auto scene_mesh_from(const aiMesh* in) -> scene_mesh {
@@ -211,7 +215,7 @@ static auto scene_animation_channel_from(const aiNodeAnim* in)
   return out;
 }
 
-auto scene_animation_channel::position(float64 time) -> glm::mat4 {
+auto scene_animation_channel::position(float64 time) const -> glm::mat4 {
   if (positions.empty()) return glm::mat4{1.0f};
   if (positions.size() == 1)
     return glm::translate(glm::mat4{1.0f}, positions[0].data);
@@ -228,7 +232,7 @@ auto scene_animation_channel::position(float64 time) -> glm::mat4 {
   return glm::translate(glm::mat4{1.0f}, p);
 }
 
-auto scene_animation_channel::rotation(float64 time) -> glm::mat4 {
+auto scene_animation_channel::rotation(float64 time) const -> glm::mat4 {
   if (rotations.empty()) return glm::mat4{1.0f};
   if (rotations.size() == 1)
     return glm::toMat4(glm::normalize(rotations[0].data));
@@ -246,7 +250,7 @@ auto scene_animation_channel::rotation(float64 time) -> glm::mat4 {
   return glm::toMat4(glm::normalize(p));
 }
 
-auto scene_animation_channel::scaling(float64 time) -> glm::mat4 {
+auto scene_animation_channel::scaling(float64 time) const -> glm::mat4 {
   if (scalings.empty()) return glm::mat4{1.0f};
   if (scalings.size() == 1)
     return glm::scale(glm::mat4{1.0f}, scalings[0].data);
@@ -263,7 +267,7 @@ auto scene_animation_channel::scaling(float64 time) -> glm::mat4 {
   return glm::scale(glm::mat4{1.0f}, p);
 }
 
-auto scene_animation_channel::transform(float64 time) -> glm::mat4 {
+auto scene_animation_channel::transform(float64 time) const -> glm::mat4 {
   return position(time) * rotation(time) * scaling(time);
 }
 
@@ -370,6 +374,7 @@ static void traverse_skeleton_nodes(scene& s,
   s.skeleton.parents.push_back(parent);
   s.skeleton.nodes.emplace_back(&node);
   parent = s.skeleton.bones.size();
+  s.skeleton.bone_name_map.emplace(node.name, parent);
   s.skeleton.bones.emplace_back(node.bone_entries[0].offset,
                                 space * node.transform);
 
