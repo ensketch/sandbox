@@ -2,6 +2,7 @@
 #include <ensketch/sandbox/basic_viewer.hpp>
 #include <ensketch/sandbox/executor.hpp>
 #include <ensketch/sandbox/log.hpp>
+#include <ensketch/sandbox/scene_viewer.hpp>
 #include <ensketch/sandbox/simple_viewer.hpp>
 #include <ensketch/sandbox/surface_viewer.hpp>
 
@@ -181,7 +182,31 @@ void add_lua_functions() {
   //           "close\n"
   //           "set_background_color\n");
   //     });
-  using viewer_type = executor<surface_viewer_api>;
+
+  // using viewer_type = executor<surface_viewer_api>;
+  // table.new_usertype<viewer_type>(
+  //     "viewer",                                                    //
+  //     "open", sol::constructors<viewer_type()>{},                  //
+  //     "close", &viewer_type::close,                                //
+  //     "show", &viewer_type::show,                                  //
+  //     "hide", &viewer_type::hide,                                  //
+  //     "focused", &viewer_type::focused,                            //
+  //     "focus", &viewer_type::focus,                                //
+  //     "set_position", &viewer_type::set_position,                  //
+  //     "resize", &viewer_type::resize,                              //
+  //     "mouse_position", &viewer_type::mouse_position,              //
+  //     "set_background_color", &viewer_type::set_background_color,  //
+  //     "load_surface", &viewer_type::load_surface,                  //
+  //     "set_wireframe", &viewer_type::set_wireframe,                //
+  //     "use_face_normal", &viewer_type::use_face_normal,            //
+  //     "help", [] {
+  //       log::info(
+  //           "open\n"
+  //           "close\n"
+  //           "set_background_color\n");
+  //     });
+
+  using viewer_type = executor<scene_viewer_api>;
   table.new_usertype<viewer_type>(
       "viewer",                                                    //
       "open", sol::constructors<viewer_type()>{},                  //

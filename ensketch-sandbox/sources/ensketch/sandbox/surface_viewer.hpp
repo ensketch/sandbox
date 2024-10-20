@@ -1,6 +1,7 @@
 #pragma once
 #include <ensketch/sandbox/basic_viewer.hpp>
 #include <ensketch/sandbox/polyhedral_surface.hpp>
+#include <ensketch/sandbox/skeletal_mesh.hpp>
 
 namespace ensketch::sandbox {
 
@@ -10,18 +11,18 @@ class surface_viewer_state : public basic_viewer_state {
  public:
   using base = basic_viewer_state;
 
+  using mesh_type = skeletal_mesh;
+
   surface_viewer_state() {
     va.bind();
     vertices.bind();
     faces.bind();
     glEnableVertexAttribArray(0);
-    glVertexAttribPointer(
-        0, 3, GL_FLOAT, GL_FALSE, sizeof(polyhedral_surface::vertex),
-        (void*)offsetof(polyhedral_surface::vertex, position));
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(mesh_type::vertex),
+                          (void*)offsetof(mesh_type::vertex, position));
     glEnableVertexAttribArray(1);
-    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE,
-                          sizeof(polyhedral_surface::vertex),
-                          (void*)offsetof(polyhedral_surface::vertex, normal));
+    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(mesh_type::vertex),
+                          (void*)offsetof(mesh_type::vertex, normal));
 
     const auto vs = opengl::vertex_shader{"#version 460 core\n",  //
                                           R"##(
@@ -186,8 +187,8 @@ void main() {
 
   void load_surface(const std::filesystem::path& path) {
     try {
-      surface = polyhedral_surface_from(path);
-      surface.generate_edges();
+      // surface = polyhedral_surface_from(path);
+      surface = skeletal_mesh_from_file(path);
       fit_view_to_surface();
       vertices.allocate_and_initialize(surface.vertices);
       faces.allocate_and_initialize(surface.faces);
@@ -234,7 +235,8 @@ void main() {
   void use_face_normal(bool value) { shader.set("use_face_normal", value); }
 
  protected:
-  polyhedral_surface surface{};
+  // polyhedral_surface surface{};
+  mesh_type surface{};
   float bounding_radius;
   opengl::shader_program shader{};
   opengl::vertex_array va{};
