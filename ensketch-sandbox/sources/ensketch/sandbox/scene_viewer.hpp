@@ -45,8 +45,8 @@ void main() {
 
   gl_Position = projection * view * bone_transform * vec4(p, 1.0);
 
-  position = vec3(view * vec4(p, 1.0));
-  normal = vec3(view * vec4(n, 0.0));
+  position = vec3(view * bone_transform * vec4(p, 1.0));
+  normal = vec3(transpose(inverse(view * bone_transform)) * vec4(n, 0.0));
 
   // color = vec3(float(offsets[gl_VertexID]) / weights.length());
   // color = vec3(float(offsets[gl_VertexID + 1] - offsets[gl_VertexID]) / 4);
@@ -424,7 +424,8 @@ void main() {
 
       // auto tmp = surface.skeleton.global_transforms();
       // bone_transforms.allocate_and_initialize(tmp);
-      // for (auto& x : tmp) {
+      // auto tmp = surface.skeleton.global_transforms(surface.animations[0],
+      // 0); for (auto& x : tmp) {
       //   x = transpose(x);
       //   log::text(
       //       std::format("{},{},{},{}", x[0][0], x[0][1], x[0][2], x[0][3]));
@@ -457,7 +458,7 @@ void main() {
     // cout << "bounding radius = " << bounding_radius << endl;
 
     radius = bounding_radius / tan(0.5f * camera.vfov());
-    camera.set_near_and_far(1e-4f * radius, 2 * radius);
+    camera.set_near_and_far(1e-5f * radius, 100 * radius);
     view_should_update = true;
   }
 

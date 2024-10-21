@@ -382,8 +382,22 @@ static void traverse_skeleton_nodes(scene& s,
     traverse_skeleton_nodes(s, child, parent, glm::mat4(1.0f));
 }
 
+static void traverse_skeleton_nodes(scene& s, scene_node& node, uint32 parent) {
+  s.skeleton.parents.push_back(parent);
+  s.skeleton.nodes.emplace_back(&node);
+  parent = s.skeleton.bones.size();
+  s.skeleton.bone_name_map.emplace(node.name, parent);
+  if (node.bone_entries.empty())
+    s.skeleton.bones.emplace_back(glm::mat4(1.0f), node.transform);
+  else
+    s.skeleton.bones.emplace_back(node.bone_entries[0].offset, node.transform);
+
+  for (auto& child : node.children) traverse_skeleton_nodes(s, child, parent);
+}
+
 static void update_skeleton(scene& s) {
-  traverse_skeleton_nodes(s, s.root, -1, glm::mat4(1.0f));
+  // traverse_skeleton_nodes(s, s.root, -1, glm::mat4(1.0f));
+  traverse_skeleton_nodes(s, s.root, -1);
 
   //
   s.skeleton.weights.resize(s.meshes.size());
@@ -436,6 +450,8 @@ auto scene_from_file(const std::filesystem::path& path) -> scene {
       aiProcess_JoinIdenticalVertices | aiProcess_RemoveComponent |
       /*aiProcess_OptimizeMeshes |*/ /*aiProcess_OptimizeGraph |*/
       aiProcess_FindDegenerates /*| aiProcess_DropNormals*/;
+
+  importer.SetPropertyBool(AI_CONFIG_IMPORT_FBX_PRESERVE_PIVOTS, false);
 
   const auto in = importer.ReadFile(path.c_str(), post_processing);
 

@@ -147,7 +147,8 @@ struct scene_skeleton {
     std::vector<glm::mat4> result{};
     result.reserve(bones.size());
     for (size_t bid = 0; bid < bones.size(); ++bid)
-      result.push_back(bones[bid].transform);
+      result.push_back(glm::mat4(1.0f));
+    // result.push_back(bones[bid].transform);
 
     for (const auto& channel : animation.channels) {
       if (auto it = bone_name_map.find(channel.node_name);

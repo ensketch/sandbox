@@ -7,77 +7,68 @@
 
 namespace ensketch::sandbox {
 
+/// OpenGL comes with several important considerations:
 ///
+/// - An OpenGL context must be created and activated on the thread that will
+///   issue OpenGL commands.
+/// - Issuing OpenGL commands without an active context or without creating one
+///   for the current thread leads to errors and may terminate the application.
+/// - Since the graphics driver batches OpenGL commands for processing on the
+///   GPU, sharing a single OpenGL context across multiple threads is generally
+///   discouraged. Instead, either use multiple contexts on separate threads or
+///   restrict the context to a dedicated thread.
+///
+/// See: https://www.khronos.org/opengl/wiki/OpenGL_and_multithreading
+///
+/// We require an OpenGL context to run on a dedicated thread to avoid context
+/// switching and ensuring the context is used exclusively on that thread.
+/// However, we still want to allow issuing OpenGL commands from other threads,
+/// with those commands being executed on the dedicated OpenGL thread.
+/// This approach avoids the need for manually activating the OpenGL context
+/// on specific threads, and, with the use of RAII, guarantees that an OpenGL
+/// context is active when commands are issued.
+///
+/// Further Requirements:
+/// - Automatic creation and asynchronous execution of the OpenGL loop.
+///   => Use multi-threading with `std::jthread`.
+/// - Ensure each function is executed on the dedicated OpenGL thread.
+///   => Use a task queue that is processed exclusively within the OpenGL loop.
+/// - Ensure a reasonable level of exception safety.
+///   => Use RAII for automatic cleanup of OpenGL state.
+///   => Catch any thrown exceptions and store them using a future-promise pair.
+/// - Support state and API specialization through inheritance and static
+///   polymorphism to allow the construction of various viewers.
+///   => Maintain separation between state management and API logic.
+/// - Provide a mechanism for stopping the OpenGL loop externally using stop
+///   sources.
+///
+/// `opengl_window_state` is the base type for any OpenGL application state.
+/// It is meant to be constructed and executed on its own dedicated thread to
+/// ensure the availability of a valid OpenGL context for all the following
+/// OpenGL commands. Throwing exceptions or manually quitting the thread of
+/// execution will, according to RAII, call the state's destructor and properly
+/// clean up.
 ///
 class opengl_window_state {
+  /// State Data
+  ///
+  /// OpenGL Window and Context
+  sf::Window window{};
+  /// Queue to asynchronously receive events and process them.
+  std::queue<sf::Event> events{};
+
  protected:
-  opengl_window_state(int width, int height, std::string_view title) {
-    // On MacOS, windows and events must be managed in the main thread.
-    // See: https://www.sfml-dev.org/tutorials/2.6/window-window.php
-    main_thread::invoke([this, width, height, title] {
-      // For now, always try to acquire the latest OpenGL version.
-      // In the future, the debug should be disabled when `NDEBUG` is enabled.
-      sf::ContextSettings opengl_context_settings{
-          /*.depthBits = */ 24,
-          /*.stencilBits = */ 8,
-          /*.antialiasingLevel = */ 4,
-          /*.majorVersion = */ 4,
-          /*.minorVersion = */ 6,
-          /*.attributeFlags = */
-          sf::ContextSettings::Core | sf::ContextSettings::Debug,
-          /*.sRgbCapable = */ false};
-
-      // Create a standard window with border and default interaction buttons.
-      // This class is not meant to provide fullscreen windows.
-      window.create(sf::VideoMode(width, height), std::string(title),  //
-                    sf::Style::Default, opengl_context_settings);
-
-      // "A window is active only on the current thread,
-      // if you want to make it active on another thread
-      // you have to deactivate it on the previous thread
-      // first if it was active."
-      // See: https://www.sfml-dev.org/documentation/2.6.1/classsf_1_1Window.php
-      window.setActive(false);
-    });
-
-    // Activate the window as the current target for OpenGL rendering.
-    // Make the window's OpenGL context available on the current thread.
-    window.setActive(true);
-    // Initialize all OpenGL functions for the current thread and context.
-    glbinding::initialize(sf::Context::getFunction);
-
-    // Initialize the window's default settings.
-    window.setVerticalSyncEnabled(true);
-    window.setKeyRepeatEnabled(false);
-  }
+  /// This state type is not meant to executed by itself but must first be used
+  /// as a base class to add the required the functionality and then be executed
+  /// by a thread executor. Consequently, the constructor is protected.
+  ///
+  opengl_window_state(int width, int height, std::string_view title);
 
  public:
-  /// This routine basically represents the coroutine.
+  /// This is the inner update function that must be executed
+  /// in a loop to keep the OpenGL window and context running.
   ///
-  void update(this auto&& self) {
-    // Events must be polled in the window's thread and, especially
-    // on MacOS, windows and events must be managed in the main thread.
-    // See: https://www.sfml-dev.org/tutorials/2.6/window-window.php
-    main_thread::invoke([&self] {
-      sf::Event event;
-      while (self.window.pollEvent(event))
-        // The processing of specific events will still be done by the viewer's
-        // thread. For this, enqueue all received events to the event queue.
-        self.events.push(event);
-    });
-
-    // Now, process all enqueued events on the current thread of execution.
-    // The call to `main_thread::invoke` will automatically synchronize.
-    while (not self.events.empty()) {
-      // Call the custom event processing for the current event and discard it.
-      self.process(self.events.front());
-      self.events.pop();
-    }
-
-    // Call the custom render function and swap buffers for display.
-    self.render();
-    self.window.display();
-  }
+  void update(this auto&& self);
 
   /// Make the window visible.
   ///
@@ -124,13 +115,10 @@ class opengl_window_state {
   /// relative to the window's location.
   ///
   auto mouse_position() { return sf::Mouse::getPosition(window); }
-
- private:
-  sf::Window window{};
-  std::queue<sf::Event> events{};
 };
 
-///
+/// `opengl_window_api` describes the respective thread-safe API for
+/// `opengl_window_state` that may be called from any other thread.
 ///
 template <typename derived>
 class opengl_window_api {
@@ -201,3 +189,5 @@ class opengl_window_api {
 };
 
 }  // namespace ensketch::sandbox
+
+#include <ensketch/sandbox/opengl_window.ipp>
