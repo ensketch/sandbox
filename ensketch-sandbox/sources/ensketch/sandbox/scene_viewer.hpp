@@ -212,26 +212,42 @@ void main() {
     }
   }
 
-  void pretty_print_node(const scene_node& node,
+  void pretty_print_node(const scene::node& node,
                          const std::string& prefix,
                          const std::string& child_prefix) {
-    log::text(std::format("{}{}", prefix, node.name));
+    log::text(
+        fmt::format("{}{}: {}", prefix, node.name,
+                    fmt::format(fmt::fg(fmt::color::gray), "{} ◬, {} ↣",
+                                node.meshes.size(), node.bone_entries.size())));
+
+    auto property_prefix = child_prefix;
+    if (node.children.empty())
+      property_prefix += "  ";
+    else
+      property_prefix += "│ ";
 
     for (auto mid : node.meshes)
-      log::text(std::format("{}↳ {}", child_prefix, surface.meshes[mid].name));
+      log::text(fmt::format("{}{}", property_prefix,
+                            fmt::format(fmt::fg(fmt::color::gray), "◬ {}: {}",
+                                        mid, surface.meshes[mid].name)));
 
-    for (auto [mid, offset, weights] : node.bone_entries) {
-      log::text(std::format("{}↣ {} ({})", child_prefix,
-                            surface.meshes[mid].name, weights.size()));
-      // log::text(std::format("{}  {},{},{},{}", child_prefix, offset[0][0],
-      //                       offset[0][1], offset[0][2], offset[0][3]));
-      // log::text(std::format("{}  {},{},{},{}", child_prefix, offset[1][0],
-      //                       offset[1][1], offset[1][2], offset[1][3]));
-      // log::text(std::format("{}  {},{},{},{}", child_prefix, offset[2][0],
-      //                       offset[2][1], offset[2][2], offset[2][3]));
-      // log::text(std::format("{}  {},{},{},{}", child_prefix, offset[3][0],
-      //                       offset[3][1], offset[3][2], offset[3][3]));
+    for (auto [mid, weights] : node.bone_entries) {
+      if (weights.empty()) continue;
+      log::text(fmt::format(
+          "{}{}", property_prefix,
+          fmt::format(fmt::fg(fmt::color::gray), "↣ ◬ {}: {} ({})", mid,
+                      surface.meshes[mid].name, weights.size())));
     }
+
+    // const auto& offset = node.offset;
+    // log::text(std::format("{}  {},{},{},{}", child_prefix, offset[0][0],
+    //                       offset[0][1], offset[0][2], offset[0][3]));
+    // log::text(std::format("{}  {},{},{},{}", child_prefix, offset[1][0],
+    //                       offset[1][1], offset[1][2], offset[1][3]));
+    // log::text(std::format("{}  {},{},{},{}", child_prefix, offset[2][0],
+    //                       offset[2][1], offset[2][2], offset[2][3]));
+    // log::text(std::format("{}  {},{},{},{}", child_prefix, offset[3][0],
+    //                       offset[3][1], offset[3][2], offset[3][3]));
 
     auto it = node.children.begin();
     if (it == node.children.end()) return;
@@ -244,74 +260,43 @@ void main() {
     pretty_print_node(*it, child_prefix + "└─", child_prefix + "  ");
   }
 
-  void print_node(const scene_node& node, size_t indent) {
-    log::text(fmt::format("{:>{}}{}", " ", indent, node.name));
-    for (const auto& child : node.children) print_node(child, indent + 1);
-  }
-
-  // void print_node(size_t index, size_t indent) {
-  //   auto& node = surface.hierarchy.nodes[index];
-  //   auto [p, q] = node.children;
-  //   log::text(fmt::format("{:>{}}{} ({},{})", " ", indent, node.name, p, q));
-  //   for (size_t i = p; i < q; ++i)
-  //     print_node(surface.hierarchy.children[i], indent + 1);
-  // }
-
-  // void print_hierarchy() {
-  //   log::text("Hierarchy:");
-  //   print_node(0, 0);
-  // }
-
-  // void print_animations() {
-  //   log::text("Animations:");
-  //   for (auto& anim : surface.animations) {
-  //     log::text(anim.name);
-  //     for (auto& channel : anim.channels)
-  //       log::text(fmt::format("  {}", channel.node_name));
-  //   }
-  //   log::text("");
-  // }
-
   void print_scene_info() {
     log::text("\nScene Information:");
     log::text(std::format("name = {}", surface.name));
-    // log::text(std::format("vertices = {}", surface.vertices.size()));
-    // log::text(std::format("faces = {}", surface.faces.size()));
-    // log::text("---");
+    log::text("");
 
-    log::text("Meshes:");
-    for (const auto& mesh : surface.meshes) {
-      log::text(std::format("  name = {}", mesh.name));
-      log::text(std::format("  vertices = {}", mesh.vertices.size()));
-      log::text(std::format("  faces = {}", mesh.faces.size()));
-      //   log::text(std::format("  vertices = [{},{})",  //
-      //                         mesh.vertices.first, mesh.vertices.last));
-      //   log::text(std::format("  faces = [{},{})",  //
-      //                         mesh.faces.first, mesh.faces.last));
-      log::text("  ---");
+    if (not surface.meshes.empty()) {
+      const auto size = surface.meshes.size();
+      const auto id_width = static_cast<int>(
+          std::ceil(std::log10(static_cast<float32>(size + 1))));
+      log::text(fmt::format(fmt::emphasis::bold, "Meshes:"));
+      for (size_t i = 0; i < surface.meshes.size() - 1; ++i) {
+        const auto& mesh = surface.meshes[i];
+        log::text(std::format("├─◬ {:>{}}: {}", i, id_width, mesh.name));
+        // if (not mesh.name.empty()) log::text(std::format("│   {}",
+        // mesh.name));
+        log::text(std::format("│   #v = {:>8}", mesh.vertices.size()));
+        log::text(std::format("│   #f = {:>8}", mesh.faces.size()));
+      }
+      {
+        const auto& mesh = surface.meshes.back();
+        log::text(std::format("└─◬ {:>{}}: {}", surface.meshes.size() - 1,
+                              id_width, mesh.name));
+        // if (not mesh.name.empty()) log::text(std::format("    {}",
+        // mesh.name));
+        log::text(std::format("    #v = {:>8}", mesh.vertices.size()));
+        log::text(std::format("    #f = {:>8}", mesh.faces.size()));
+      }
+      log::text("");
     }
 
-    log::text("Hierarchy:");
-    // log::text(std::format("  nodes = {}", surface.hierarchy.nodes.size()));
-    // log::text("  ---");
-    // // for (auto& node : surface.hierarchy.nodes) {
-    // //   log::text(std::format("  {} ({},{})", node.name,
-    // node.children.first,
-    // //                         node.children.last));
-    // // }
-    // // log::text("  ---");
-    // // for (size_t i = 0; auto index : surface.hierarchy.children) {
-    // //   log::text(std::format("  children[{}] = {}", i, index));
-    // //   ++i;
-    // // }
-    // // log::text("  ---");
-    // print_node(surface.root, 2);
-    pretty_print_node(surface.root, " ─", "  ");
-    log::text("  ---");
+    log::text(fmt::format(fmt::emphasis::bold, "Hierarchy:"));
+    pretty_print_node(surface.root, "", "");
+    log::text("");
 
-    log::text("Animations:");
+    log::text(fmt::format(fmt::emphasis::bold, "Animations:"));
     for (auto& anim : surface.animations) {
-      log::text(std::format("  name = {}", anim.name));
+      log::text(std::format("  ☋ {}", anim.name));
       log::text(std::format("  time = {}", anim.duration));
       log::text(std::format("  tick = {}", anim.ticks));
       log::text("  Channels:");
@@ -321,16 +306,16 @@ void main() {
                               channel.positions.size(),
                               channel.rotations.size(),
                               channel.scalings.size()));
-      log::text("  ---");
+      log::text("");
     }
 
-    log::text("Skeleton:");
-    for (size_t i = 0; i < surface.skeleton.bones.size(); ++i) {
-      log::text(fmt::format("  {:>4}: {} ↣ {}", i,
-                            surface.skeleton.nodes[i]->name,
-                            surface.skeleton.parents[i]));
-    }
-    log::text("  ---");
+    // log::text("Skeleton:");
+    // for (size_t i = 0; i < surface.skeleton.bones.size(); ++i) {
+    //   log::text(fmt::format("  {:>4}: {} ↣ {}", i,
+    //                         surface.skeleton.nodes[i]->name,
+    //                         surface.skeleton.parents[i]));
+    // }
+    // log::text("  ---");
     // for (size_t mid = 0; auto& wdata : surface.skeleton.weights) {
     //   log::text(std::format("  mesh = {}", surface.meshes[mid].name));
     //   for (size_t vid = 0;
@@ -395,11 +380,13 @@ void main() {
         device_meshes[i].faces.bind();
 
         glEnableVertexAttribArray(0);
-        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(scene::vertex),
-                              (void*)offsetof(scene::vertex, position));
+        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE,
+                              sizeof(scene::mesh::vertex),
+                              (void*)offsetof(scene::mesh::vertex, position));
         glEnableVertexAttribArray(1);
-        glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(scene::vertex),
-                              (void*)offsetof(scene::vertex, normal));
+        glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE,
+                              sizeof(scene::mesh::vertex),
+                              (void*)offsetof(scene::mesh::vertex, normal));
 
         device_meshes[i].vertices.allocate_and_initialize(
             surface.meshes[i].vertices);

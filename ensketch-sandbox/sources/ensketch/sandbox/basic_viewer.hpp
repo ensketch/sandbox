@@ -47,6 +47,12 @@ class basic_viewer_state : public opengl_window_state {
         case sf::Keyboard::Escape:
           sandbox::quit();
           break;
+        case sf::Keyboard::Num1:
+          set_y_as_up();
+          break;
+        case sf::Keyboard::Num2:
+          set_z_as_up();
+          break;
       }
     }
   }
