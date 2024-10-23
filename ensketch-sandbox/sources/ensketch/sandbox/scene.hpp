@@ -50,6 +50,7 @@ struct scene {
     std::list<node> children{};  // Use `std::list` for easy modification.
 
     /// Node Data
+    uint32 index{};
     std::string name{};
     glm::mat4 offset{1.0f};
     glm::mat4 transform{1.0f};
@@ -127,11 +128,15 @@ struct scene {
   std::string name{};
   std::vector<mesh> meshes{};
   node root{};
+  uint32 node_count{};
   std::map<std::string_view, node&> node_name_map{};
   std::vector<animation> animations{};
 
   flat_skeleton skeleton{};
 };
+
+void traverse(scene::node& node, auto&& f);
+void traverse(const scene::node& node, auto&& f);
 
 /// Constructor Extension for AABB
 /// Get the bounding box around a polyhedral surface.
@@ -141,3 +146,5 @@ auto aabb_from(const scene& mesh) noexcept -> aabb3;
 auto scene_from_file(const std::filesystem::path& path) -> scene;
 
 }  // namespace ensketch::sandbox
+
+#include <ensketch/sandbox/scene.ipp>

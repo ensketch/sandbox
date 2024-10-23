@@ -2,6 +2,7 @@
 #include <ensketch/sandbox/basic_viewer.hpp>
 #include <ensketch/sandbox/flat_scene.hpp>
 #include <ensketch/sandbox/scene.hpp>
+#include <ensketch/sandbox/skinned_mesh.hpp>
 
 namespace ensketch::sandbox {
 
@@ -39,6 +40,8 @@ out vec3 normal;
 out vec3 color;
 
 void main() {
+  // mat4 bone_transform = mat4(1.0);
+
   mat4 bone_transform = mat4(0.0);
   for (uint i = offsets[gl_VertexID]; i < offsets[gl_VertexID + 1]; ++i)
     bone_transform += weights[i].weight * transforms[weights[i].bid];
@@ -216,7 +219,7 @@ void main() {
                          const std::string& prefix,
                          const std::string& child_prefix) {
     log::text(
-        fmt::format("{}{}: {}", prefix, node.name,
+        fmt::format("{}☋ {}: {}: {}", prefix, node.index, node.name,
                     fmt::format(fmt::fg(fmt::color::gray), "{} ◬, {} ↣",
                                 node.meshes.size(), node.bone_entries.size())));
 
@@ -341,6 +344,8 @@ void main() {
     try {
       surface = scene_from_file(path);
 
+      mesh = skinned_mesh_from(surface);
+
       print_scene_info();
 
       // log::text("Meshes:");
@@ -359,55 +364,73 @@ void main() {
       // vertices.allocate_and_initialize(surface.vertices);
       // faces.allocate_and_initialize(surface.faces);
 
-      // device_mesh.va.bind();
-      // device_mesh.vertices.bind();
-      // device_mesh.faces.bind();
-      // glEnableVertexAttribArray(0);
-      // glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE,
-      //                       sizeof(flat_scene::vertex),
-      //                       (void*)offsetof(flat_scene::vertex, position));
-      // glEnableVertexAttribArray(1);
-      // glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE,
-      //                       sizeof(flat_scene::vertex),
-      //                       (void*)offsetof(flat_scene::vertex, normal));
-      // device_mesh.vertices.allocate_and_initialize(surface.vertices);
-      // device_mesh.faces.allocate_and_initialize(surface.faces);
+      device_mesh.va.bind();
+      device_mesh.vertices.bind();
+      device_mesh.faces.bind();
+      glEnableVertexAttribArray(0);
+      glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE,
+                            sizeof(skinned_mesh::vertex),
+                            (void*)offsetof(skinned_mesh::vertex, position));
+      glEnableVertexAttribArray(1);
+      glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE,
+                            sizeof(skinned_mesh::vertex),
+                            (void*)offsetof(skinned_mesh::vertex, normal));
+      device_mesh.vertices.allocate_and_initialize(mesh.vertices);
+      device_mesh.faces.allocate_and_initialize(mesh.faces);
+      //
+      glBindBuffer(GL_SHADER_STORAGE_BUFFER,
+                   device_mesh.bone_weight_offsets.id());
+      glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0,
+                       device_mesh.bone_weight_offsets.id());
+      glBindBuffer(GL_SHADER_STORAGE_BUFFER, device_mesh.bone_weight_data.id());
+      glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1,
+                       device_mesh.bone_weight_data.id());
+      device_mesh.bone_weight_offsets.allocate_and_initialize(
+          mesh.weights.offsets);
+      device_mesh.bone_weight_data.allocate_and_initialize(
+          mesh.weights.entries);
+      //
+      glBindBuffer(GL_SHADER_STORAGE_BUFFER, mesh_transforms.id());
+      glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 2, mesh_transforms.id());
+      //
+      mesh_transforms.allocate_and_initialize(global_transforms(mesh));
 
-      device_meshes.resize(surface.meshes.size());
-      for (size_t i = 0; i < surface.meshes.size(); ++i) {
-        device_meshes[i].va.bind();
-        device_meshes[i].vertices.bind();
-        device_meshes[i].faces.bind();
+      // device_meshes.resize(surface.meshes.size());
+      // for (size_t i = 0; i < surface.meshes.size(); ++i) {
+      //   device_meshes[i].va.bind();
+      //   device_meshes[i].vertices.bind();
+      //   device_meshes[i].faces.bind();
 
-        glEnableVertexAttribArray(0);
-        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE,
-                              sizeof(scene::mesh::vertex),
-                              (void*)offsetof(scene::mesh::vertex, position));
-        glEnableVertexAttribArray(1);
-        glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE,
-                              sizeof(scene::mesh::vertex),
-                              (void*)offsetof(scene::mesh::vertex, normal));
+      //   glEnableVertexAttribArray(0);
+      //   glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE,
+      //                         sizeof(scene::mesh::vertex),
+      //                         (void*)offsetof(scene::mesh::vertex,
+      //                         position));
+      //   glEnableVertexAttribArray(1);
+      //   glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE,
+      //                         sizeof(scene::mesh::vertex),
+      //                         (void*)offsetof(scene::mesh::vertex, normal));
 
-        device_meshes[i].vertices.allocate_and_initialize(
-            surface.meshes[i].vertices);
-        device_meshes[i].faces.allocate_and_initialize(surface.meshes[i].faces);
+      //   device_meshes[i].vertices.allocate_and_initialize(
+      //       surface.meshes[i].vertices);
+      //   device_meshes[i].faces.allocate_and_initialize(surface.meshes[i].faces);
 
-        glBindBuffer(GL_SHADER_STORAGE_BUFFER,
-                     device_meshes[i].bone_weight_offsets.id());
-        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0,
-                         device_meshes[i].bone_weight_offsets.id());
-        glBindBuffer(GL_SHADER_STORAGE_BUFFER,
-                     device_meshes[i].bone_weight_data.id());
-        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1,
-                         device_meshes[i].bone_weight_data.id());
+      //   glBindBuffer(GL_SHADER_STORAGE_BUFFER,
+      //                device_meshes[i].bone_weight_offsets.id());
+      //   glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0,
+      //                    device_meshes[i].bone_weight_offsets.id());
+      //   glBindBuffer(GL_SHADER_STORAGE_BUFFER,
+      //                device_meshes[i].bone_weight_data.id());
+      //   glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1,
+      //                    device_meshes[i].bone_weight_data.id());
 
-        device_meshes[i].bone_weight_offsets.allocate_and_initialize(
-            surface.skeleton.weights[i].offsets);
-        device_meshes[i].bone_weight_data.allocate_and_initialize(
-            surface.skeleton.weights[i].data);
-      }
-      glBindBuffer(GL_SHADER_STORAGE_BUFFER, bone_transforms.id());
-      glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 2, bone_transforms.id());
+      //   device_meshes[i].bone_weight_offsets.allocate_and_initialize(
+      //       surface.skeleton.weights[i].offsets);
+      //   device_meshes[i].bone_weight_data.allocate_and_initialize(
+      //       surface.skeleton.weights[i].data);
+      // }
+      // glBindBuffer(GL_SHADER_STORAGE_BUFFER, bone_transforms.id());
+      // glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 2, bone_transforms.id());
 
       // auto tmp = surface.skeleton.global_transforms();
       // bone_transforms.allocate_and_initialize(tmp);
@@ -457,35 +480,44 @@ void main() {
     shader.try_set("viewport", camera.viewport_matrix());
 
     shader.use();
-    // device_mesh.va.bind();
-    // device_mesh.faces.bind();
-    // glDrawElements(GL_TRIANGLES, 3 * surface.faces.size(), GL_UNSIGNED_INT,
-    // 0);
 
-    if (not surface.animations.empty()) {
+    if (not mesh.animations.empty()) {
       const auto current = std::chrono::high_resolution_clock::now();
-      const auto time = std::fmod(
-          std::chrono::duration<float64>(current - start).count(),
-          surface.animations[0].duration / surface.animations[0].ticks);
-      auto tmp =
-          surface.skeleton.global_transforms(surface.animations[0], time);
-      bone_transforms.allocate_and_initialize(tmp);
+      const auto time =
+          std::fmod(std::chrono::duration<float64>(current - start).count(),
+                    mesh.animations[0].duration / mesh.animations[0].ticks);
+      mesh_transforms.allocate_and_initialize(
+          animation_transforms(mesh, 0, time));
     }
 
-    for (size_t i = 0; i < surface.meshes.size(); ++i) {
-      device_meshes[i].va.bind();
-      device_meshes[i].faces.bind();
-      // glBindBuffer(GL_SHADER_STORAGE_BUFFER,
-      //              device_meshes[i].bone_weight_offsets.id());
-      glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0,
-                       device_meshes[i].bone_weight_offsets.id());
-      // glBindBuffer(GL_SHADER_STORAGE_BUFFER,
-      //              device_meshes[i].bone_weight_data.id());
-      glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1,
-                       device_meshes[i].bone_weight_data.id());
-      glDrawElements(GL_TRIANGLES, 3 * surface.meshes[i].faces.size(),
-                     GL_UNSIGNED_INT, 0);
-    }
+    device_mesh.va.bind();
+    device_mesh.faces.bind();
+    glDrawElements(GL_TRIANGLES, 3 * mesh.faces.size(), GL_UNSIGNED_INT, 0);
+
+    // if (not surface.animations.empty()) {
+    //   const auto current = std::chrono::high_resolution_clock::now();
+    //   const auto time = std::fmod(
+    //       std::chrono::duration<float64>(current - start).count(),
+    //       surface.animations[0].duration / surface.animations[0].ticks);
+    //   auto tmp =
+    //       surface.skeleton.global_transforms(surface.animations[0], time);
+    //   bone_transforms.allocate_and_initialize(tmp);
+    // }
+
+    // for (size_t i = 0; i < surface.meshes.size(); ++i) {
+    //   device_meshes[i].va.bind();
+    //   device_meshes[i].faces.bind();
+    //   // glBindBuffer(GL_SHADER_STORAGE_BUFFER,
+    //   //              device_meshes[i].bone_weight_offsets.id());
+    //   glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0,
+    //                    device_meshes[i].bone_weight_offsets.id());
+    //   // glBindBuffer(GL_SHADER_STORAGE_BUFFER,
+    //   //              device_meshes[i].bone_weight_data.id());
+    //   glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1,
+    //                    device_meshes[i].bone_weight_data.id());
+    //   glDrawElements(GL_TRIANGLES, 3 * surface.meshes[i].faces.size(),
+    //                  GL_UNSIGNED_INT, 0);
+    // }
   }
 
   void set_wireframe(bool value) { shader.set("wireframe", value); }
@@ -497,6 +529,8 @@ void main() {
   scene surface{};
   // flat_scene surface{};
   float bounding_radius;
+
+  skinned_mesh mesh{};
 
   std::chrono::time_point<std::chrono::high_resolution_clock> start =
       std::chrono::high_resolution_clock::now();
@@ -511,7 +545,8 @@ void main() {
     opengl::shader_storage_buffer bone_weight_data{};
   };
   opengl::shader_storage_buffer bone_transforms{};
-  // opengl_mesh device_mesh{};
+  opengl_mesh device_mesh{};
+  opengl::shader_storage_buffer mesh_transforms{};
   std::vector<opengl_mesh> device_meshes{};
 };
 

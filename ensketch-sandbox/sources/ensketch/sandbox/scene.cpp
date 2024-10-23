@@ -55,7 +55,10 @@ static void load_meshes(const aiScene* in, scene& out) {
 
 static void load(const aiNode* in,
                  scene::node& out,
+                 uint32& count,
                  scene::node* parent = nullptr) {
+  // Index
+  out.index = count++;
   // Name
   out.name = in->mName.C_Str();
   // Matrices
@@ -67,12 +70,7 @@ static void load(const aiNode* in,
   // Connectivity
   out.parent = parent;
   for (size_t i = 0; i < in->mNumChildren; ++i)
-    load(in->mChildren[i], out.children.emplace_back(), &out);
-}
-
-static void traverse(scene::node& node, auto&& f) {
-  std::invoke(f, node);
-  for (auto& child : node.children) traverse(child, f);
+    load(in->mChildren[i], out.children.emplace_back(), count, &out);
 }
 
 static void update_node_name_map(scene& s) {
@@ -101,7 +99,7 @@ static void load_bone_entries(const aiScene* in, scene& out) {
 }
 
 static void load_hierarchy(const aiScene* in, scene& out) {
-  load(in->mRootNode, out.root);
+  load(in->mRootNode, out.root, out.node_count);
   update_node_name_map(out);
   load_bone_entries(in, out);
 }
