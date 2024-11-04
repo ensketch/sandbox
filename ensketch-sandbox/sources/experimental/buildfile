@@ -1,7 +1,10 @@
-import xstd = libensketch-xstd%lib{ensketch-xstd}
-import replxx = libreplxx%lib{replxx}
-import sol = sol2%lib{sol2}
-exe{experiment}: {hxx ixx txx cxx}{**} $xstd $replxx $sol
+import libs = libensketch-xstd%lib{ensketch-xstd}
+import libs = sfml-graphics%lib{sfml-graphics}
+
+# import replxx = libreplxx%lib{replxx}
+# import sol = sol2%lib{sol2}
+
+exe{experiment}: {hxx ixx txx cxx}{**} $libs
 {
   test = true
 }
